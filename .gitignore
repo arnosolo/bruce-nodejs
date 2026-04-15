@@ -25,6 +25,7 @@ yarn-error.log*
 .project
 .classpath
 .settings/
+*.local
 
 # OS files
 .DS_Store
@@ -34,6 +35,7 @@ Thumbs.db
 dist/
 build/
 out/
+generated/
 
 # Logs
 logs/

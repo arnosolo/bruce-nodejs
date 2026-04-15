@@ -1,0 +1,16 @@
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      responses:
+        200:
+          description: API is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  database:
+                    type: string

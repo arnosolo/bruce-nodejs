@@ -1,26 +1,22 @@
 import express, { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './lib/prisma.js';
+import "dotenv/config";
+import { setupSwagger } from './lib/swagger.js';
+import healthRouter from './routes/health.js';
 
 const app = express();
-const prisma = new PrismaClient();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// Setup Swagger UI
+setupSwagger(app);
+
 app.get('/', (req: Request, res: Response) => {
-  res.json({ message: 'Welcome to Customer Service API' });
+  res.redirect('/api-docs');
 });
 
-app.get('/health', async (req: Request, res: Response) => {
-  try {
-    // Basic check to see if prisma is connected
-    // This will fail until you run migrations and have a database
-    // await prisma.$connect();
-    res.json({ status: 'OK', database: 'connected (simulated)' });
-  } catch (error) {
-    res.status(500).json({ status: 'Error', message: (error as Error).message });
-  }
-});
+app.use('/health', healthRouter);
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
