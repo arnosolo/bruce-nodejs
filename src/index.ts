@@ -3,6 +3,7 @@ import { prisma } from './lib/prisma.js';
 import "dotenv/config";
 import { setupSwagger } from './lib/swagger.js';
 import healthRouter from './routes/health.js';
+import authRouter from './routes/auth.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.use('/health', healthRouter);
+app.use('/auth', authRouter);
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);

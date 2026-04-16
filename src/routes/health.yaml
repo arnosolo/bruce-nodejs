@@ -10,7 +10,27 @@ paths:
               schema:
                 type: object
                 properties:
-                  status:
+                  success:
+                    type: boolean
+                  message:
                     type: string
-                  database:
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      database:
+                        type: string
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  errorCode:
                     type: string
