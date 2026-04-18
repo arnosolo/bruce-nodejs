@@ -1,6 +1,8 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import { Express } from 'express';
+import { Express, Request, Response } from 'express';
+
+const swaggerJsonPath = '/api-docs-json';
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -8,7 +10,7 @@ const options: swaggerJsdoc.Options = {
     info: {
       title: 'User Service API',
       version: '1.0.0',
-      description: 'User service API with Prisma and Express',
+      description: `User service API with Prisma and Express. [Download JSON](${swaggerJsonPath})`,
     },
     servers: [
       {
@@ -41,4 +43,10 @@ const specs = swaggerJsdoc(options);
 
 export function setupSwagger(app: Express) {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+  
+  // 暴露 Swagger JSON 数据
+  app.get(swaggerJsonPath, (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(specs);
+  });
 }
