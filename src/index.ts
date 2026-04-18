@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import { prisma } from './lib/prisma.js';
 import "dotenv/config";
 import { setupSwagger } from './lib/swagger.js';
@@ -9,6 +10,9 @@ import { errorHandler } from './middlewares/errorHandler.js';
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+}));
 app.use(express.json());
 
 // Setup Swagger UI
