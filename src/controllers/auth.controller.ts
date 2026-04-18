@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../utils/AppError.js';
 import { validatePassword, validateEmail } from '../utils/validator.js';
+import { ErrorCode } from '../constants/errorCodes.js';
 
 /**
  * 辅助函数：生成 JWT
@@ -33,16 +34,16 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const { email, password, name } = req.body;
 
     if (!validateEmail(email)) {
-      return next(new AppError('邮箱格式不正确', 400, 'INVALID_EMAIL'));
+      return next(new AppError(ErrorCode.InvalidEmail));
     }
 
     if (!validatePassword(password)) {
-      return next(new AppError('密码太简单，需至少8位且包含大小写字母和数字', 400, 'PASSWORD_TOO_SIMPLE'));
+      return next(new AppError(ErrorCode.PasswordTooSimple));
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      return next(new AppError('用户已存在', 400, 'USER_ALREADY_EXISTS'));
+      return next(new AppError(ErrorCode.UserAlreadyExists));
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -64,7 +65,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       });
     } catch (error: any) {
       console.error('JWT Signing failed:', error.message);
-      return next(new AppError('内部配置错误', 500, 'INTERNAL_CONFIGURATION_ERROR'));
+      return next(new AppError(ErrorCode.ConfigError));
     }
   } catch (error) {
     next(error);
@@ -77,12 +78,12 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return next(new AppError('用户名或密码错误', 401, 'INVALID_CREDENTIALS'));
+      return next(new AppError(ErrorCode.InvalidCredentials));
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return next(new AppError('用户名或密码错误', 401, 'INVALID_CREDENTIALS'));
+      return next(new AppError(ErrorCode.InvalidCredentials));
     }
 
     try {
@@ -95,7 +96,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       });
     } catch (error: any) {
       console.error('JWT Signing failed:', error.message);
-      return next(new AppError('内部配置错误', 500, 'INTERNAL_CONFIGURATION_ERROR'));
+      return next(new AppError(ErrorCode.ConfigError));
     }
   } catch (error) {
     next(error);
