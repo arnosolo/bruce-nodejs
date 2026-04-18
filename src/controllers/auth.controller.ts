@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../utils/AppError.js';
+import { validatePassword, validateEmail } from '../utils/validator.js';
 
 /**
  * 辅助函数：生成 JWT
@@ -30,6 +31,14 @@ const formatAuthResponse = (user: any, token: string) => {
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password, name } = req.body;
+
+    if (!validateEmail(email)) {
+      return next(new AppError('邮箱格式不正确', 400, 'INVALID_EMAIL'));
+    }
+
+    if (!validatePassword(password)) {
+      return next(new AppError('密码太简单，需至少8位且包含大小写字母和数字', 400, 'PASSWORD_TOO_SIMPLE'));
+    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {

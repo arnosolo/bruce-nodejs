@@ -15,8 +15,11 @@ paths:
               properties:
                 email:
                   type: string
+                  format: email
                 password:
                   type: string
+                  minLength: 8
+                  description: 密码需至少8位，且包含大写字母、小写字母和数字
                 name:
                   type: string
       responses:
