@@ -1,18 +1,16 @@
 /**
  * 错误码定义
- * Key: 用于代码调用 (PascalCase)，视觉舒适
- * Value: 用于协议传输 (SCREAMING_SNAKE_CASE)，醒目且符合传统规范
  */
 export const ErrorCode = {
   // 认证相关
-  InvalidEmail: 'INVALID_EMAIL',
-  PasswordTooSimple: 'PASSWORD_TOO_SIMPLE',
-  UserAlreadyExists: 'USER_ALREADY_EXISTS',
-  InvalidCredentials: 'INVALID_CREDENTIALS',
+  InvalidEmail: 'AUTH_001',
+  PasswordTooSimple: 'AUTH_002',
+  UserAlreadyExists: 'AUTH_003',
+  InvalidCredentials: 'AUTH_004',
   
   // 系统相关
-  InternalError: 'INTERNAL_ERROR',
-  ConfigError: 'CONFIG_ERROR',
+  InternalError: 'SYS_001',
+  ConfigError: 'SYS_002',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
