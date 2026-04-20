@@ -47,7 +47,7 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
 
   // --- 系统相关 ---
   [ErrorCode.InternalError]: { 
-    message: '服务器内部错误', 
+    message: '系统繁忙，请稍后再试', 
     status: 500 
   },
   [ErrorCode.ConfigError]: { 
