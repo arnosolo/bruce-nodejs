@@ -7,6 +7,7 @@ export const ErrorCode = {
   PasswordTooSimple: 'AUTH_002',
   UserAlreadyExists: 'AUTH_003',
   InvalidCredentials: 'AUTH_004',
+  Unauthorized: 'AUTH_005',
   
   // 系统相关
   InternalError: 'SYS_001',
@@ -42,6 +43,10 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
   },
   [ErrorCode.InvalidCredentials]: { 
     message: '用户名或密码错误', 
+    status: 401 
+  },
+  [ErrorCode.Unauthorized]: { 
+    message: '请先登录', 
     status: 401 
   },
 

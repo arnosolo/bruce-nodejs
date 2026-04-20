@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../utils/AppError.js';
 import { validatePassword, validateEmail } from '../utils/validator.js';
 import { ErrorCode } from '../constants/errorCodes.js';
+import { AuthRequest } from '../middlewares/auth.js';
 
 /**
  * 辅助函数：生成 JWT
@@ -98,6 +99,32 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       console.error('JWT Signing failed:', error.message);
       return next(new AppError(ErrorCode.ConfigError));
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMe = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    const { password, ...userWithoutPassword } = user;
+
+    res.json({
+      success: true,
+      data: userWithoutPassword,
+    });
   } catch (error) {
     next(error);
   }
