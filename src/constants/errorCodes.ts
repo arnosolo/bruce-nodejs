@@ -9,6 +9,9 @@ export const ErrorCode = {
   InvalidCredentials: 'AUTH_004',
   Unauthorized: 'AUTH_005',
   
+  // 请求相关
+  InvalidRequest: 'REQ_001',
+  
   // 系统相关
   InternalError: 'SYS_001',
   ConfigError: 'SYS_002',
@@ -48,6 +51,12 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
   [ErrorCode.Unauthorized]: { 
     message: '请先登录', 
     status: 401 
+  },
+
+  // --- 请求相关 ---
+  [ErrorCode.InvalidRequest]: { 
+    message: '请求参数有误', 
+    status: 400 
   },
 
   // --- 系统相关 ---

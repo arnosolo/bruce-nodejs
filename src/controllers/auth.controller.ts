@@ -129,3 +129,42 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     next(error);
   }
 };
+
+interface UpdateProfileInput {
+  name?: string;
+}
+
+export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    const { name } = req.body as UpdateProfileInput;
+    const updateData: UpdateProfileInput = {};
+
+    if (name !== undefined) {
+      updateData.name = name;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return next(new AppError(ErrorCode.InvalidRequest, '没有需要更新的内容'));
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    const { password, ...userWithoutPassword } = updatedUser;
+
+    res.json({
+      success: true,
+      message: '个人资料更新成功',
+      data: userWithoutPassword,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
