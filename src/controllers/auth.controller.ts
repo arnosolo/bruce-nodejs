@@ -38,6 +38,9 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser?.deletedAt) {
+      return next(new AppError(ErrorCode.AccountDeleted));
+    }
     if (existingUser) {
       return next(new AppError(ErrorCode.UserAlreadyExists));
     }
@@ -78,6 +81,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return next(new AppError(ErrorCode.InvalidCredentials));
     }
 
+    if (user.deletedAt) {
+      return next(new AppError(ErrorCode.AccountDeleted));
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return next(new AppError(ErrorCode.InvalidCredentials));
@@ -112,7 +119,7 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       where: { id: userId },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       return next(new AppError(ErrorCode.Unauthorized));
     }
 
@@ -135,6 +142,11 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
   try {
     const userId = req.user?.id;
     if (!userId) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.deletedAt) {
       return next(new AppError(ErrorCode.Unauthorized));
     }
 
@@ -187,7 +199,7 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
       where: { id: userId },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       return next(new AppError(ErrorCode.Unauthorized));
     }
 
@@ -205,6 +217,35 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
     res.json({
       success: true,
       message: '密码修改成功',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteAccount = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || user.deletedAt) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: new Date() },
+    });
+
+    res.json({
+      success: true,
+      message: '账号已成功注销',
     });
   } catch (error) {
     next(error);

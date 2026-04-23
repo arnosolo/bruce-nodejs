@@ -9,6 +9,7 @@ export const ErrorCode = {
   InvalidCredentials: 'AUTH_004',
   Unauthorized: 'AUTH_005',
   InvalidOldPassword: 'AUTH_006',
+  AccountDeleted: 'AUTH_007',
   
   // 请求相关
   InvalidRequest: 'REQ_001',
@@ -56,6 +57,10 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
   [ErrorCode.InvalidOldPassword]: { 
     message: '旧密码错误', 
     status: 400 
+  },
+  [ErrorCode.AccountDeleted]: { 
+    message: '该账号已注销', 
+    status: 403 
   },
 
   // --- 请求相关 ---

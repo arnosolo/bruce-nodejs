@@ -146,6 +146,25 @@ paths:
           description: Invalid input or email already taken
         401:
           description: Unauthorized
+    delete:
+      summary: Delete current user account (soft delete)
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        401:
+          description: Unauthorized
   /auth/password:
     put:
       summary: Change current user password
