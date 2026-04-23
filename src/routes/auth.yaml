@@ -146,6 +146,44 @@ paths:
           description: Invalid input or email already taken
         401:
           description: Unauthorized
+  /auth/password:
+    put:
+      summary: Change current user password
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - oldPassword
+                - newPassword
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+                  description: 密码需至少8位，且包含大写字母、小写字母和数字
+      responses:
+        200:
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        400:
+          description: Invalid old password or simple new password
+        401:
+          description: Unauthorized
 
 components:
   securitySchemes:

@@ -165,3 +165,48 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
     next(error);
   }
 };
+
+export const changePassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return next(new AppError(ErrorCode.InvalidRequest, '必须提供旧密码和新密码'));
+    }
+
+    if (!validatePassword(newPassword)) {
+      return next(new AppError(ErrorCode.PasswordTooSimple));
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isPasswordValid) {
+      return next(new AppError(ErrorCode.InvalidOldPassword));
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    res.json({
+      success: true,
+      message: '密码修改成功',
+    });
+  } catch (error) {
+    next(error);
+  }
+};

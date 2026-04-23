@@ -8,6 +8,7 @@ export const ErrorCode = {
   UserAlreadyExists: 'AUTH_003',
   InvalidCredentials: 'AUTH_004',
   Unauthorized: 'AUTH_005',
+  InvalidOldPassword: 'AUTH_006',
   
   // 请求相关
   InvalidRequest: 'REQ_001',
@@ -51,6 +52,10 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
   [ErrorCode.Unauthorized]: { 
     message: '请先登录', 
     status: 401 
+  },
+  [ErrorCode.InvalidOldPassword]: { 
+    message: '旧密码错误', 
+    status: 400 
   },
 
   // --- 请求相关 ---
