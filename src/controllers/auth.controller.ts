@@ -10,12 +10,7 @@ import { AuthRequest } from '../middlewares/auth.js';
 /**
  * 辅助函数：生成 JWT
  */
-const generateToken = (userId: number): string => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    // 这种属于系统级错误，抛出给全局处理器捕获
-    throw new Error('JWT_SECRET is not defined in environment variables');
-  }
+const generateToken = (userId: number, secret: string): string => {
   return jwt.sign({ userId }, secret, { expiresIn: '24h' });
 };
 
@@ -56,18 +51,19 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       },
     });
 
-    try {
-      const token = generateToken(user.id);
-
-      res.status(201).json({
-        success: true,
-        message: '注册成功',
-        data: formatAuthResponse(user, token),
-      });
-    } catch (error: any) {
-      console.error('JWT Signing failed:', error.message);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('JWT_SECRET is not defined');
       return next(new AppError(ErrorCode.ConfigError));
     }
+
+    const token = generateToken(user.id, secret);
+
+    res.status(201).json({
+      success: true,
+      message: '注册成功',
+      data: formatAuthResponse(user, token),
+    });
   } catch (error) {
     next(error);
   }
@@ -87,18 +83,19 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return next(new AppError(ErrorCode.InvalidCredentials));
     }
 
-    try {
-      const token = generateToken(user.id);
-      
-      res.json({
-        success: true,
-        message: '登录成功',
-        data: formatAuthResponse(user, token),
-      });
-    } catch (error: any) {
-      console.error('JWT Signing failed:', error.message);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('JWT_SECRET is not defined');
       return next(new AppError(ErrorCode.ConfigError));
     }
+    
+    const token = generateToken(user.id, secret);
+    
+    res.json({
+      success: true,
+      message: '登录成功',
+      data: formatAuthResponse(user, token),
+    });
   } catch (error) {
     next(error);
   }

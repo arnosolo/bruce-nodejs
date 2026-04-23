@@ -21,10 +21,15 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   try {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
-      throw new Error('JWT_SECRET is not defined');
+      console.error('JWT_SECRET is not defined');
+      return next(new AppError(ErrorCode.ConfigError));
     }
 
-    const decoded = jwt.verify(token, secret) as { userId: number };
+    const decoded = jwt.verify(token, secret);
+    if (typeof decoded !== 'object' || !decoded || typeof (decoded as any).userId !== 'number') {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
     req.user = { id: decoded.userId };
     next();
   } catch (error) {
