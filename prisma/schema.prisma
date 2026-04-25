@@ -18,12 +18,49 @@ enum Role {
 }
 
 model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String?
+  name          String?
+  role          Role           @default(CUSTOMER)
+  deletedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  conversations Conversation[]
+  messages      Message[]
+}
+
+model Conversation {
   id        Int       @id @default(autoincrement())
-  email     String    @unique
-  password  String?
-  name      String?
-  role      Role      @default(CUSTOMER)
-  deletedAt DateTime?
+  title     String?   @db.VarChar(255)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  messages  Message[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // 为 userId 添加索引，大幅提升根据用户查询会话列表的性能
+  @@index([userId])
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  content        String       @db.Text
+  role           MessageRole
+  senderId       Int?         // 逻辑关联发送者ID (User.id)，AI消息可为空
+  sender         User?        @relation(fields: [senderId], references: [id])
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  // 为 conversationId 和 senderId 添加索引，提升查询性能
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
 }

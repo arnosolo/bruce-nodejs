@@ -85,6 +85,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return next(new AppError(ErrorCode.AccountDeleted));
     }
 
+    // 检查是否有密码（适配 OAuth 等无密码场景）
+    if (!user.password) {
+      return next(new AppError(ErrorCode.InvalidCredentials));
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return next(new AppError(ErrorCode.InvalidCredentials));
@@ -200,6 +205,10 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
     });
 
     if (!user || user.deletedAt) {
+      return next(new AppError(ErrorCode.Unauthorized));
+    }
+
+    if (!user.password) {
       return next(new AppError(ErrorCode.Unauthorized));
     }
 

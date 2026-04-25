@@ -13,6 +13,8 @@ export const ErrorCode = {
   
   // 请求相关
   InvalidRequest: 'REQ_001',
+  NotFound: 'REQ_002',
+  Forbidden: 'REQ_003',
   
   // 系统相关
   InternalError: 'SYS_001',
@@ -67,6 +69,14 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
   [ErrorCode.InvalidRequest]: { 
     message: '请求参数有误', 
     status: 400 
+  },
+  [ErrorCode.NotFound]: { 
+    message: '资源不存在', 
+    status: 404 
+  },
+  [ErrorCode.Forbidden]: { 
+    message: '拒绝访问', 
+    status: 403 
   },
 
   // --- 系统相关 ---

@@ -5,6 +5,7 @@ import "dotenv/config";
 import { setupSwagger } from './lib/swagger.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
+import conversationRouter from './routes/conversation.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
@@ -22,8 +23,10 @@ app.get('/', (req: Request, res: Response) => {
   res.redirect('/api-docs');
 });
 
+// 路由注册
 app.use('/health', healthRouter);
 app.use('/auth', authRouter);
+app.use('/conversations', conversationRouter); // 会话与聊天路由
 
 // 全局错误处理中间件
 app.use(errorHandler);
