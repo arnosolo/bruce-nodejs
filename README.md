@@ -73,6 +73,44 @@
   npm start
   ```
 
+## 数据库 Schema 更新
+
+如果您修改了 `prisma/schema.prisma` 中的数据模型，请按照以下步骤更新数据库：
+
+1. **生成并应用迁移：**
+   ```bash
+   npx prisma migrate dev --name <migration_name>
+   ```
+   此命令会创建一个新的迁移文件，将其应用到数据库，并自动重新生成 Prisma Client。
+
+2. **仅更新 Prisma Client：**
+   如果您只需要更新 TypeScript 类型定义（例如在拉取了包含新迁移的代码后），可以运行：
+   ```bash
+   npx prisma generate
+   ```
+
+## 生产环境部署
+
+在生产服务器上部署时，请遵循以下流程：
+
+1. **编译项目：**
+   ```bash
+   npm run build
+   ```
+   *原因：Node.js 无法直接运行 TS。编译会将代码转换为高性能的 JS 并存放在 `dist` 目录。*
+
+2. **同步数据库（部署迁移）：**
+   ```bash
+   npx prisma migrate deploy
+   ```
+   *原因：生产环境应使用 `deploy` 而非 `dev`。它仅执行未应用的迁移文件，不会重置数据库，确保数据安全。*
+
+3. **启动服务：**
+   ```bash
+   npm start
+   ```
+   *原因：运行编译后的代码。建议配合 PM2 或 Docker 等工具进行进程管理。*
+
 ## 目录结构
 
 - src/: 源代码目录
