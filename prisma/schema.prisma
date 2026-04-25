@@ -10,12 +10,20 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  CUSTOMER
+  AGENT
+  AI
+  ADMIN
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String?
   name      String?
+  role      Role      @default(CUSTOMER)
   deletedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }

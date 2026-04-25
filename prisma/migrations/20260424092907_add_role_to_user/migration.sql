@@ -1,0 +1,6 @@
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('CUSTOMER', 'AGENT', 'AI', 'ADMIN');
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "role" "Role" NOT NULL DEFAULT 'CUSTOMER',
+ALTER COLUMN "password" DROP NOT NULL;
