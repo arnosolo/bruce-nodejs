@@ -4,6 +4,7 @@ import { AppError } from '../utils/AppError.js';
 import { ErrorCode } from '../constants/errorCodes.js';
 import { AuthRequest } from '../middlewares/auth.js';
 import { MessageRole } from '../../generated/prisma/client.js';
+import * as aiService from '../services/ai.service.js';
 
 /**
  * 获取会话列表 (支持 Offset 分页)
@@ -173,8 +174,8 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       },
     });
 
-    // 2. 获取 AI 回复 (当前为模拟逻辑，后续接入 LLM)
-    const aiContent = `这是一个模拟回复。你刚才说的是: "${content}"`;
+    // 2. 获取 AI 回复
+    const aiContent = await aiService.generateAgentResponse(content, conversationId);
     
     // 3. 将 AI 回复存入数据库
     const aiMessage = await prisma.message.create({
