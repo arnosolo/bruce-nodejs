@@ -8,6 +8,19 @@ import { prisma } from "../lib/prisma.js";
 import { MessageRole } from "../../generated/prisma/client.js";
 import { AppError } from "../utils/AppError.js";
 import { ErrorCode } from "../constants/errorCodes.js";
+import * as userService from "./user.service.js";
+
+/**
+ * 系统的核心指令，定义 AI 的身份、语气和行为规范
+ */
+const SYSTEM_PROMPT = `你是一位专业、友善且高效的 AI 客服助手。
+你的目标是为用户提供准确的帮助。
+
+行为准则：
+1. 身份认同：你是该平台的官方 AI 客服，始终保持礼貌和专业的态度。
+2. 工具使用：如果用户提到自己的名字（如“我叫小明”）或要求更改姓名，请务必使用 'update_user_profile' 工具进行更新。
+3. 简洁性：回复应直接、清晰，避免冗长的废话。
+4. 边界意识：仅回答与客服、平台使用及用户账户相关的问题。`;
 
 // 定义 Agent 的输入输出结构
 interface AgentInput {
@@ -43,21 +56,33 @@ async function getAgent(): Promise<Runnable<AgentInput, AgentOutput>> {
     });
 
     // 定义工具
-    // const getWeather = tool(
-    //   (input) => `It's sunny in ${input.location}.`,
-    //   {
-    //     name: "get_weather",
-    //     description: "Get the weather at a location.",
-    //     schema: z.object({
-    //       location: z.string()
-    //     })
-    //   }
-    // );
+    const updateUserProfile = tool(
+      async (input, { configurable }) => {
+        const userId = configurable?.userId;
+        if (!userId) {
+          return "Error: User ID not provided. Cannot update profile.";
+        }
+        try {
+          await userService.updateProfile(userId, { name: input.name });
+          return `Successfully updated your profile. Name is now ${input.name}.`;
+        } catch (error) {
+          console.error("Failed to update user profile:", error);
+          return "Failed to update your profile due to a database error.";
+        }
+      },
+      {
+        name: "update_user_profile",
+        description: "Update the user's profile information. Currently supports updating the name. Use this when the user wants to change their name or introduces themselves.",
+        schema: z.object({
+          name: z.string().optional().describe("The new name of the user"),
+        }),
+      }
+    );
 
     // 创建 Agent
     agentInstance = createAgent({
       model,
-      // tools: [getWeather],
+      tools: [updateUserProfile],
     }) as unknown as Runnable<AgentInput, AgentOutput>;
 
     return agentInstance;
@@ -69,16 +94,16 @@ async function getAgent(): Promise<Runnable<AgentInput, AgentOutput>> {
 
 /**
  * 生成 AI 回复 (使用 Gemini Agent)
- * @param content 用户输入的内容
  * @param conversationId 会话 ID
+ * @param userId 用户 ID
  * @returns AI 生成的文本
  */
-export const generateAgentResponse = async (content: string, conversationId: number): Promise<string> => {
+export const generateAgentResponse = async (conversationId: number, userId: number): Promise<string> => {
   // 确保 Agent 已初始化 (包含环境变量校验)
   const agent = await getAgent();
 
   try {
-    // 1. 获取最近的聊天历史
+    // 1. 获取最近的聊天历史 (包含刚刚已保存到数据库的用户最新消息)
     const historyMessages = await prisma.message.findMany({
       where: { conversationId },
       orderBy: { createdAt: "desc" },
@@ -96,9 +121,12 @@ export const generateAgentResponse = async (content: string, conversationId: num
     // 2. 调用 Agent
     const result = await agent.invoke({
       messages: [
+        { role: "system", content: SYSTEM_PROMPT },
         ...formattedHistory,
-        // { role: "user", content: content }
       ],
+    }, {
+      // 通过 configurable 传递上下文，使 Tool 能够获取当前用户 ID
+      configurable: { userId }
     });
 
     // console.log(result.messages.map(it => it.content));

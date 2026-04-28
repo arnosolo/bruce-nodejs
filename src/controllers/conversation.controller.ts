@@ -174,8 +174,8 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       },
     });
 
-    // 2. 获取 AI 回复
-    const aiContent = await aiService.generateAgentResponse(content, conversationId);
+    // 2. 获取 AI 回复 (AI 会自动从数据库历史记录中读取刚才保存的消息)
+    const aiContent = await aiService.generateAgentResponse(conversationId, userId);
     
     // 3. 将 AI 回复存入数据库
     const aiMessage = await prisma.message.create({

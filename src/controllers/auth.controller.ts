@@ -6,6 +6,7 @@ import { AppError } from '../utils/AppError.js';
 import { validatePassword, validateEmail } from '../utils/validator.js';
 import { ErrorCode } from '../constants/errorCodes.js';
 import { AuthRequest } from '../middlewares/auth.js';
+import * as userService from '../services/user.service.js';
 
 /**
  * 辅助函数：生成 JWT
@@ -139,10 +140,6 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
   }
 };
 
-interface UpdateProfileInput {
-  name?: string;
-}
-
 export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
@@ -155,8 +152,8 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       return next(new AppError(ErrorCode.Unauthorized));
     }
 
-    const { name } = req.body as UpdateProfileInput;
-    const updateData: UpdateProfileInput = {};
+    const { name } = req.body;
+    const updateData: userService.UpdateProfileInput = {};
 
     if (name !== undefined) {
       updateData.name = name;
@@ -166,10 +163,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       return next(new AppError(ErrorCode.InvalidRequest, '没有需要更新的内容'));
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-    });
+    const updatedUser = await userService.updateProfile(userId, updateData);
 
     const { password, ...userWithoutPassword } = updatedUser;
 
