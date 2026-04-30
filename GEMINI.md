@@ -18,14 +18,7 @@ This project is an **AI Customer Service API** built with **Node.js**, **Express
 
 
 ## Data Models
-- **User**: Represents a client in the system.
-    - `id`: Unique identifier.
-    - `email`: Unique email address.
-    - `password`: Hashed password.
-    - `name`: Optional name.
-- **Conversation**: Represents a chat session.
-    - `title`: The title of the conversation (null by default).
-    - `isTitleGenerated`: Boolean flag indicating if the AI has automatically generated a title.
+For the definitive schema, please refer to `prisma/schema.prisma`.
 
 ## AI Service & Features
 ### Multi-Provider Support
