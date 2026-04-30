@@ -1,0 +1,54 @@
+paths:
+  /oss/upload-signature:
+    get:
+      summary: 获取 OSS 上传签名 (PostObject)
+      description: |
+        前端直传 OSS 流程：
+        1. 调用此接口获取 `host`, `policy`, `signature` 等参数。
+        2. 使用 `multipart/form-data` POST 请求将文件上传至 `host` 域名。
+        3. 表单字段必须包含：`key`, `policy`, `OSSAccessKeyId`, `signature` 以及 `file` (file 必须是最后一个字段)。
+        4. 上传成功后，将 `key` 用于提交业务消息（如发送图片消息）。
+      tags: [OSS]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: filename
+          required: true
+          schema:
+            type: string
+          description: 待上传的文件名（用于生成后缀）
+      responses:
+        200:
+          description: 成功获取上传签名
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      host:
+                        type: string
+                        description: OSS 上传域名
+                      policy:
+                        type: string
+                        description: Base64 编码的上传策略
+                      signature:
+                        type: signature
+                        description: 签名字符串
+                      accessId:
+                        type: string
+                        description: AccessKey ID
+                      key:
+                        type: string
+                        description: 文件在 OSS 中的唯一路径
+        400:
+          $ref: '#/components/responses/BadRequestError'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        500:
+          $ref: '#/components/responses/ServerError'

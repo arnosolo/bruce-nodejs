@@ -6,6 +6,7 @@ import { setupSwagger } from './lib/swagger.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import conversationRouter from './routes/conversation.js';
+import ossRouter from './routes/oss.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
@@ -27,6 +28,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/health', healthRouter);
 app.use('/auth', authRouter);
 app.use('/conversations', conversationRouter); // 会话与聊天路由
+app.use('/oss', ossRouter); // OSS 相关路由
 
 // 全局错误处理中间件
 app.use(errorHandler);

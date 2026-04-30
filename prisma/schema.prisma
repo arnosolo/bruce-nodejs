@@ -49,6 +49,8 @@ model Message {
   id             Int          @id @default(autoincrement())
   content        String       @db.Text
   role           MessageRole
+  type           MessageType  @default(TEXT)
+  attachmentKey  String?      @db.VarChar(512)
   senderId       Int?         // 逻辑关联发送者ID (User.id)，AI消息可为空
   sender         User?        @relation(fields: [senderId], references: [id])
   conversationId Int
@@ -64,4 +66,10 @@ enum MessageRole {
   USER
   ASSISTANT
   SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
 }

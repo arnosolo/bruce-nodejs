@@ -3,8 +3,9 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../utils/AppError.js';
 import { ErrorCode } from '../constants/errorCodes.js';
 import { AuthRequest } from '../middlewares/auth.js';
-import { MessageRole } from '../../generated/prisma/client.js';
+import { MessageRole, MessageType } from '../../generated/prisma/client.js';
 import * as aiService from '../services/ai.service.js';
+import * as ossService from '../services/oss.service.js';
 
 /**
  * 获取会话列表 (支持 Offset 分页)
@@ -122,10 +123,16 @@ export const getMessages = async (req: AuthRequest, res: Response, next: NextFun
       orderBy: { createdAt: 'asc' }, // 聊天记录通常按时间升序展示
     });
 
+    // 为附件生成私密下载链接
+    const messagesWithUrls = messages.map(msg => ({
+      ...msg,
+      url: msg.attachmentKey ? ossService.getDownloadUrl(msg.attachmentKey) : null,
+    }));
+
     res.json({
       success: true,
       data: {
-        list: messages,
+        list: messagesWithUrls,
         nextCursor: messages.length === limit ? messages[messages.length - 1].id : null,
       },
     });
@@ -141,9 +148,9 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
   try {
     const userId = req.user?.id;
     const conversationId = parseInt(req.params.id as string);
-    const { content } = req.body;
+    const { content, type, attachmentKey } = req.body;
 
-    if (isNaN(conversationId) || !content) {
+    if (isNaN(conversationId) || (!content && !attachmentKey)) {
       return next(new AppError(ErrorCode.InvalidRequest));
     }
 
@@ -162,7 +169,9 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
     // 1. 保存用户发送的消息
     const userMessage = await prisma.message.create({
       data: {
-        content,
+        content: content || '',
+        type: (type as MessageType) || MessageType.TEXT,
+        attachmentKey: attachmentKey || null,
         role: MessageRole.USER,
         conversationId,
         senderId: userId, // 记录发送者ID
@@ -202,7 +211,10 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
     res.json({
       success: true,
       data: {
-        userMessage,
+        userMessage: {
+          ...userMessage,
+          url: userMessage.attachmentKey ? ossService.getDownloadUrl(userMessage.attachmentKey) : null,
+        },
         aiMessage,
       },
     });
