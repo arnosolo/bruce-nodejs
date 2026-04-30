@@ -9,6 +9,7 @@ import { MessageRole } from "../../generated/prisma/client.js";
 import { AppError } from "../utils/AppError.js";
 import { ErrorCode } from "../constants/errorCodes.js";
 import * as userService from "./user.service.js";
+import { ChatOllama } from "@langchain/ollama";
 
 /**
  * 系统的核心指令，定义 AI 的身份、语气和行为规范
@@ -35,6 +36,57 @@ interface AgentOutput {
 let agentInstance: Runnable<AgentInput, AgentOutput> | null = null;
 
 /**
+ * 模型配置接口
+ */
+interface ModelConfig {
+  provider: string;
+  modelName: string;
+  temperature: number;
+  apiKey?: string;
+  baseUrl?: string;
+}
+
+/**
+ * 初始化 Google Gemini 模型
+ */
+const initGoogleModel = async (config: ModelConfig) => {
+  // 优先级: 显性传入的 config.apiKey (来自 AI_API_KEY) > 环境变量 GOOGLE_API_KEY
+  const apiKey = config.apiKey || process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new AppError(ErrorCode.ConfigError, "Missing API Key: Please set AI_API_KEY or GOOGLE_API_KEY");
+  }
+  return initChatModel(`${config.provider}:${config.modelName}`, { temperature: config.temperature, apiKey });
+};
+
+/**
+ * 初始化 OpenAI 模型
+ */
+const initOpenAIModel = async (config: ModelConfig) => {
+  // 优先级: 显性传入的 config.apiKey (来自 AI_API_KEY) > 环境变量 OPENAI_API_KEY
+  const apiKey = config.apiKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new AppError(ErrorCode.ConfigError, "Missing API Key: Please set AI_API_KEY or OPENAI_API_KEY");
+  }
+  return initChatModel(`${config.provider}:${config.modelName}`, { temperature: config.temperature, apiKey });
+};
+
+/**
+ * 初始化 Ollama 模型
+ */
+const initOllamaModel = async (config: ModelConfig) => {
+  const baseUrl = config.baseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+  const modelName = config.modelName;
+  if (!modelName) throw new AppError(ErrorCode.ConfigError, "Missing AI_MODEL_NAME");
+
+  const model = new ChatOllama({
+    baseUrl: baseUrl,
+    model: modelName,
+    temperature: config.temperature,
+  });
+  return model
+};
+
+/**
  * 获取或初始化 Agent 实例 (单例模式 + 延迟加载)
  */
 async function getAgent(): Promise<Runnable<AgentInput, AgentOutput>> {
@@ -42,18 +94,44 @@ async function getAgent(): Promise<Runnable<AgentInput, AgentOutput>> {
     return agentInstance;
   }
 
-  // 校验环境变量
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    throw new AppError(ErrorCode.ConfigError, "Missing GOOGLE_API_KEY");
+  // 从环境变量获取配置
+  const provider = process.env.AI_PROVIDER;
+  const modelName = process.env.AI_MODEL_NAME;
+  const temperature = parseFloat(process.env.AI_TEMPERATURE || "0.7");
+
+  if (!provider || !modelName) {
+    throw new AppError(
+      ErrorCode.ConfigError,
+      "Missing AI configuration: AI_PROVIDER and AI_MODEL_NAME must be defined in environment variables."
+    );
   }
+  
+  const config: ModelConfig = {
+    provider,
+    modelName,
+    temperature,
+    // AI_API_KEY 作为通用 Key (如使用 One API/中转代理) 具有最高优先级
+    apiKey: process.env.AI_API_KEY,
+  };
 
   try {
-    // 初始化 Gemini 模型
-    const model = await initChatModel("google-genai:gemini-2.5-flash-lite", {
-      temperature: 0.7,
-      apiKey: apiKey, // 显式传递 API Key
-    });
+    let model;
+    switch (provider) {
+      case "google-genai":
+        model = await initGoogleModel(config);
+        break;
+      case "openai":
+        model = await initOpenAIModel(config);
+        break;
+      case "ollama":
+        model = await initOllamaModel(config);
+        break;
+      default:
+        throw new AppError(
+          ErrorCode.ConfigError,
+          `Unsupported AI provider: "${provider}".`
+        );
+    }
 
     // 定义工具
     const updateUserProfile = tool(
@@ -87,7 +165,7 @@ async function getAgent(): Promise<Runnable<AgentInput, AgentOutput>> {
 
     return agentInstance;
   } catch (error) {
-    console.error("Failed to initialize Gemini Agent:", error);
+    console.error(`Failed to initialize AI Agent (${modelName}):`, error);
     throw new AppError(ErrorCode.InternalError, "AI Service Initialization Failed");
   }
 }
