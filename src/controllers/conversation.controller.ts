@@ -67,7 +67,7 @@ export const createConversation = async (req: AuthRequest, res: Response, next: 
 
     const conversation = await prisma.conversation.create({
       data: {
-        title: title || '新会话',
+        title: title || null,
         userId,
       },
     });
@@ -192,10 +192,36 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       },
     });
 
-    // 4. 更新会话的最后活跃时间，以便列表排序
+    // 4. 更新会话信息
+    const updateData: any = { updatedAt: new Date() };
+
+    // 优化后的触发条件判断：
+    // 使用数据库状态标识 isTitleGenerated 判断，比字符串比对更可靠
+    if (!conversation.isTitleGenerated) {
+      // 获取当前会话的总消息数，用于判断是否触发自动标题生成
+      const messageCount = await prisma.message.count({ where: { conversationId } });
+
+      // 优化后的触发条件：
+      // 消息数达到 2 条（完成第一个回合）且当前用户消息长度 > 10
+      // 或者消息数达到 4 条（完成两个回合，有更多上下文）
+      const shouldSummarize = (messageCount === 2 && content.length > 10) || messageCount >= 4;
+
+      if (shouldSummarize) {
+        try {
+          const newTitle = await aiService.summarizeConversationTitle(conversationId);
+          if (newTitle) {
+            updateData.title = newTitle;
+            updateData.isTitleGenerated = true;
+          }
+        } catch (err) {
+          console.error("Auto-titling failed:", err);
+        }
+      }
+    }
+
     await prisma.conversation.update({
       where: { id: conversationId },
-      data: { updatedAt: new Date() },
+      data: updateData,
     });
 
     res.json({
@@ -203,6 +229,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       data: {
         userMessage,
         aiMessage,
+        newTitle: updateData.title ?? null,
       },
     });
   } catch (error) {

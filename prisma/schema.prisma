@@ -31,14 +31,15 @@ model User {
 }
 
 model Conversation {
-  id        Int       @id @default(autoincrement())
-  title     String?   @db.VarChar(255)
-  userId    Int
-  user      User      @relation(fields: [userId], references: [id])
-  messages  Message[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id               Int       @id @default(autoincrement())
+  title            String?   @db.VarChar(255)
+  isTitleGenerated Boolean   @default(false)
+  userId           Int
+  user             User      @relation(fields: [userId], references: [id])
+  messages         Message[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   // 为 userId 添加索引，大幅提升根据用户查询会话列表的性能
   @@index([userId])

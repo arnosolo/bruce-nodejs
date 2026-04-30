@@ -63,7 +63,7 @@ paths:
               properties:
                 title:
                   type: string
-                  default: "新会话"
+                  description: 会话标题 (可选，默认为 null)
       responses:
         201:
           description: 会话创建成功
@@ -178,6 +178,10 @@ paths:
                         $ref: '#/components/schemas/Message'
                       aiMessage:
                         $ref: '#/components/schemas/Message'
+                      newTitle:
+                        type: string
+                        nullable: true
+                        description: 更新后的会话标题 (仅在标题自动总结后返回)
         400:
           $ref: '#/components/responses/BadRequestError'
         401:
@@ -240,6 +244,9 @@ components:
         title:
           type: string
           nullable: true
+        isTitleGenerated:
+          type: boolean
+          description: 是否已由 AI 自动生成标题
         userId:
           type: integer
         createdAt:

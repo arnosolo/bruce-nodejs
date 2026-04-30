@@ -242,3 +242,44 @@ export const generateAgentResponse = async (conversationId: number, userId: numb
     throw new AppError(ErrorCode.InternalError, "AI Agent failed to generate response");
   }
 };
+
+/**
+ * 根据会话历史生成一个简洁的标题
+ * @param conversationId 会话 ID
+ * @returns 生成的标题，若失败则返回 null
+ */
+export const summarizeConversationTitle = async (conversationId: number): Promise<string | null> => {
+  const model = await getChatModel();
+
+  try {
+    // 1. 获取会话的前几条消息作为背景
+    const messages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: "asc" },
+      take: 5, // 只取前 5 条消息生成标题即可
+    });
+
+    if (messages.length === 0) return null;
+
+    const contentSummary = messages
+      .map((m) => `${m.role === MessageRole.USER ? "User" : "AI"}: ${m.content}`)
+      .join("\n");
+
+    // 2. 构造 Prompt 要求模型生成标题
+    const prompt = `请根据以下对话内容，生成一个简短、准确的会话标题（不超过 15 个字）。
+      直接返回标题文字，不要包含引号或其他修饰。对话内容：${contentSummary}`;
+
+    const result = await model.invoke(prompt);
+    
+    let title = typeof result.content === "string" ? result.content : JSON.stringify(result.content);
+    
+    title = title.replace(/["'“”]/g, "").trim();
+    if (title.startsWith("标题：")) title = title.substring(3);
+    if (title.length > 30) title = title.substring(0, 27) + "...";
+
+    return title || null;
+  } catch (error) {
+    console.error("Failed to summarize conversation title:", error);
+    return null; // 失败时返回 null，不影响主流程
+  }
+};

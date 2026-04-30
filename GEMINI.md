@@ -23,6 +23,21 @@ This project is an **AI Customer Service API** built with **Node.js**, **Express
     - `email`: Unique email address.
     - `password`: Hashed password.
     - `name`: Optional name.
+- **Conversation**: Represents a chat session.
+    - `title`: The title of the conversation (null by default).
+    - `isTitleGenerated`: Boolean flag indicating if the AI has automatically generated a title.
+
+## AI Service & Features
+### Multi-Provider Support
+The AI service supports multiple providers (Google Gemini, OpenAI, Ollama) via environment configuration (`AI_PROVIDER`).
+
+### Automatic Conversation Titling
+Conversations are automatically summarized and titled by the AI to improve UX.
+- **State-Driven**: Uses the `isTitleGenerated` flag in the database, allowing the `title` field itself to be `null` or localized.
+- **Trigger Strategy**:
+    - Triggers after 2 messages if the user's message is > 10 characters.
+    - Triggers after 4 messages (2 full turns) regardless of length.
+- **Robustness**: Employs a "silent retry" strategy—if summarization fails, it returns `null` and will be re-attempted during the next message exchange until `isTitleGenerated` is set to `true`.
 
 ## Building and Running
 ### Development
