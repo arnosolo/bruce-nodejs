@@ -16,4 +16,7 @@ router.post('/', conversationController.createConversation);
 router.get('/:id/messages', conversationController.getMessages);
 router.post('/:id/messages', conversationController.sendMessage);
 
+// 流式返回还有问题
+router.post('/:id/messages/stream', conversationController.streamSendMessage);
+
 export default router;

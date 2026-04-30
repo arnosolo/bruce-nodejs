@@ -216,6 +216,7 @@ export const generateAgentResponse = async (conversationId: number, userId: numb
         role: msg.role === MessageRole.USER ? "user" : "assistant",
         content: msg.content,
       }));
+    // console.log(formattedHistory);
 
     // 2. 调用 Agent
     const result = await agent.invoke({
@@ -228,13 +229,12 @@ export const generateAgentResponse = async (conversationId: number, userId: numb
       configurable: { userId }
     });
 
-    // console.log(result.messages.map(it => it.content));
-    
     // 3. 获取最后一条 AI 消息的内容
     const lastMessage = result.messages[result.messages.length - 1];
     
     // 确保 content 是字符串
     const responseContent = lastMessage.content;
+    console.log('AI response', responseContent);
     return typeof responseContent === "string" ? responseContent : JSON.stringify(responseContent);
   } catch (error) {
     console.error("Gemini Agent Error:", error);
@@ -242,6 +242,72 @@ export const generateAgentResponse = async (conversationId: number, userId: numb
     throw new AppError(ErrorCode.InternalError, "AI Agent failed to generate response");
   }
 };
+
+/**
+ * 流式生成 AI 回复
+ * @param conversationId 会话 ID
+ * @param userId 用户 ID
+ * @returns 异步生成器，产出文本分片
+ */
+export async function* streamAgentResponse(conversationId: number, userId: number): AsyncGenerator<string> {
+  const agent = await getAgent();
+
+  try {
+    // 1. 获取最近的聊天历史
+    const historyMessages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+
+    const formattedHistory = historyMessages
+      .reverse()
+      .map((msg) => ({
+        role: msg.role === MessageRole.USER ? "user" : "assistant",
+        content: msg.content,
+      }));
+
+    // 2. 调用 Agent 的 stream 方法
+    const stream = await agent.stream({
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...formattedHistory,
+      ],
+    }, {
+      configurable: { userId }
+    });
+
+    for await (const chunk of stream) {
+      // console.log(chunk);
+      
+      // 遍历 chunk 中的所有节点输出 (如 model_request, tools 等)
+      const chunkData = chunk as any;
+      for (const key of Object.keys(chunkData)) {
+        const nodeOutput = chunkData[key];
+
+        // 检查节点输出是否有 messages 数组
+        if (nodeOutput && Array.isArray(nodeOutput.messages)) {
+          const lastMsg = nodeOutput.messages[nodeOutput.messages.length - 1];
+
+          // 过滤逻辑：
+          // 1. 必须是 AI 消息 (排除 ToolMessage)
+          // 2. content 必须是字符串 (排除包含 tool_calls 的数组结构)
+          // 3. 避免空内容
+          if (
+            (lastMsg._getType?.() === "ai" || lastMsg.role === "assistant") &&
+            typeof lastMsg.content === "string" &&
+            lastMsg.content.trim().length > 0
+          ) {
+            yield lastMsg.content;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("AI Streaming Error:", error);
+    throw new AppError(ErrorCode.InternalError, "AI Service Streaming Failed");
+  }
+}
 
 /**
  * 根据会话历史生成一个简洁的标题

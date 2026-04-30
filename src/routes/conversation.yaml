@@ -193,6 +193,44 @@ paths:
         500:
           $ref: '#/components/responses/ServerError'
 
+  /conversations/{id}/messages/stream:
+    post:
+      summary: 流式发送消息并获取 AI 回复 (SSE)
+      tags: [Conversation]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: 会话 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  description: 消息内容
+      responses:
+        200:
+          description: 建立 SSE 连接，开始流式推送内容
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: "data: {\"content\": \"Hello\"}\n\ndata: {\"content\": \" world\"}\n\nevent: end\ndata: [DONE]\n\n"
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        500:
+          $ref: '#/components/responses/ServerError'
+
 components:
   responses:
     BadRequestError:

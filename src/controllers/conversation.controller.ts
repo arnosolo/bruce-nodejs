@@ -191,6 +191,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
         },
       },
     });
+    console.log('aiMessage saved');
 
     // 4. 更新会话信息
     const updateData: any = { updatedAt: new Date() };
@@ -200,6 +201,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
     if (!conversation.isTitleGenerated) {
       // 获取当前会话的总消息数，用于判断是否触发自动标题生成
       const messageCount = await prisma.message.count({ where: { conversationId } });
+      console.log('messageCount', messageCount);
 
       // 优化后的触发条件：
       // 消息数达到 2 条（完成第一个回合）且当前用户消息长度 > 10
@@ -209,6 +211,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       if (shouldSummarize) {
         try {
           const newTitle = await aiService.summarizeConversationTitle(conversationId);
+          console.log('AI summarize result', newTitle);
           if (newTitle) {
             updateData.title = newTitle;
             updateData.isTitleGenerated = true;
@@ -234,5 +237,123 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
     });
   } catch (error) {
     next(error);
+  }
+};
+
+/**
+ * 流式发送消息并获取 AI 回复 (SSE)
+ */
+export const streamSendMessage = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const conversationId = parseInt(req.params.id as string);
+    const { content } = req.body;
+
+    if (isNaN(conversationId) || !content) {
+      return next(new AppError(ErrorCode.InvalidRequest));
+    }
+
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation || conversation.deletedAt) {
+      return next(new AppError(ErrorCode.NotFound));
+    }
+
+    if (conversation.userId !== userId) {
+      return next(new AppError(ErrorCode.Forbidden));
+    }
+
+    // 1. 保存用户发送的消息
+    await prisma.message.create({
+      data: {
+        content,
+        role: MessageRole.USER,
+        conversationId,
+        senderId: userId,
+      },
+    });
+
+    // 2. 设置 SSE 响应头
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    let fullAIContent = '';
+
+    // 3. 开始流式输出
+    try {
+      const stream = aiService.streamAgentResponse(conversationId, userId);
+      
+      // 用于去重的上一次内容（针对某些累计输出的 Stream）
+      let lastYieldedContent = '';
+
+      for await (const chunk of stream) {
+        // 这里的 chunk 处理取决于 Service 层产出的是增量还是全量
+        // 如果是全量累计，我们需要计算增量
+        const delta = chunk.startsWith(lastYieldedContent) 
+          ? chunk.slice(lastYieldedContent.length) 
+          : chunk;
+        
+        if (delta) {
+          fullAIContent = chunk; // 保持最新的全量内容用于后续保存
+          lastYieldedContent = chunk;
+          
+          // 按照 SSE 格式发送数据
+          res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+        }
+      }
+    } catch (streamError) {
+      console.error("Streaming error:", streamError);
+      res.write(`data: ${JSON.stringify({ error: "AI response interrupted" })}\n\n`);
+    }
+
+    // 4. 流结束后，保存 AI 完整回复到数据库
+    if (fullAIContent) {
+      await prisma.message.create({
+        data: {
+          content: fullAIContent,
+          role: MessageRole.ASSISTANT,
+          conversationId,
+        },
+      });
+
+      // 5. 触发标题更新逻辑 (异步)
+      const updateData: any = { updatedAt: new Date() };
+      if (!conversation.isTitleGenerated) {
+        const messageCount = await prisma.message.count({ where: { conversationId } });
+        const shouldSummarize = (messageCount === 2 && content.length > 10) || messageCount >= 4;
+        
+        if (shouldSummarize) {
+          try {
+            const newTitle = await aiService.summarizeConversationTitle(conversationId);
+            if (newTitle) {
+              updateData.title = newTitle;
+              updateData.isTitleGenerated = true;
+              // 发送标题更新通知
+              res.write(`data: ${JSON.stringify({ newTitle })}\n\n`);
+            }
+          } catch (err) {
+            console.error("Auto-titling failed:", err);
+          }
+        }
+      }
+
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: updateData,
+      });
+    }
+
+    res.write('event: end\ndata: [DONE]\n\n');
+    res.end();
+  } catch (error) {
+    // 如果还没开始发送流就报错了，走统一错误处理
+    if (!res.headersSent) {
+      next(error);
+    } else {
+      res.end();
+    }
   }
 };
