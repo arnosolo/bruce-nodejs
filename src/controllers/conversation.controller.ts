@@ -191,40 +191,12 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
         },
       },
     });
-    console.log('aiMessage saved');
+    // console.log('aiMessage saved');
 
-    // 4. 更新会话信息
-    const updateData: any = { updatedAt: new Date() };
-
-    // 优化后的触发条件判断：
-    // 使用数据库状态标识 isTitleGenerated 判断，比字符串比对更可靠
-    if (!conversation.isTitleGenerated) {
-      // 获取当前会话的总消息数，用于判断是否触发自动标题生成
-      const messageCount = await prisma.message.count({ where: { conversationId } });
-      console.log('messageCount', messageCount);
-
-      // 优化后的触发条件：
-      // 消息数达到 2 条（完成第一个回合）且当前用户消息长度 > 10
-      // 或者消息数达到 4 条（完成两个回合，有更多上下文）
-      const shouldSummarize = (messageCount === 2 && content.length > 10) || messageCount >= 4;
-
-      if (shouldSummarize) {
-        try {
-          const newTitle = await aiService.summarizeConversationTitle(conversationId);
-          console.log('AI summarize result', newTitle);
-          if (newTitle) {
-            updateData.title = newTitle;
-            updateData.isTitleGenerated = true;
-          }
-        } catch (err) {
-          console.error("Auto-titling failed:", err);
-        }
-      }
-    }
-
+    // 4. 更新会话更新时间
     await prisma.conversation.update({
       where: { id: conversationId },
-      data: updateData,
+      data: { updatedAt: new Date() },
     });
 
     res.json({
@@ -232,7 +204,6 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       data: {
         userMessage,
         aiMessage,
-        newTitle: updateData.title ?? null,
       },
     });
   } catch (error) {
@@ -319,30 +290,10 @@ export const streamSendMessage = async (req: AuthRequest, res: Response, next: N
         },
       });
 
-      // 5. 触发标题更新逻辑 (异步)
-      const updateData: any = { updatedAt: new Date() };
-      if (!conversation.isTitleGenerated) {
-        const messageCount = await prisma.message.count({ where: { conversationId } });
-        const shouldSummarize = (messageCount === 2 && content.length > 10) || messageCount >= 4;
-        
-        if (shouldSummarize) {
-          try {
-            const newTitle = await aiService.summarizeConversationTitle(conversationId);
-            if (newTitle) {
-              updateData.title = newTitle;
-              updateData.isTitleGenerated = true;
-              // 发送标题更新通知
-              res.write(`data: ${JSON.stringify({ newTitle })}\n\n`);
-            }
-          } catch (err) {
-            console.error("Auto-titling failed:", err);
-          }
-        }
-      }
-
+      // 更新会话更新时间
       await prisma.conversation.update({
         where: { id: conversationId },
-        data: updateData,
+        data: { updatedAt: new Date() },
       });
     }
 
@@ -355,5 +306,52 @@ export const streamSendMessage = async (req: AuthRequest, res: Response, next: N
     } else {
       res.end();
     }
+  }
+};
+
+/**
+ * 手动或根据策略触发会话标题生成/总结
+ */
+export const summarizeTitle = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const conversationId = parseInt(req.params.id as string);
+
+    if (isNaN(conversationId)) {
+      return next(new AppError(ErrorCode.InvalidRequest));
+    }
+
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation || conversation.deletedAt) {
+      return next(new AppError(ErrorCode.NotFound));
+    }
+
+    if (conversation.userId !== userId) {
+      return next(new AppError(ErrorCode.Forbidden));
+    }
+
+    // 调用 AI 服务生成标题 (失败会抛出异常被 catch 捕获)
+    const newTitle = await aiService.summarizeConversationTitle(conversationId);
+    
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        title: newTitle,
+        isTitleGenerated: true,
+        updatedAt: new Date(),
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        title: newTitle,
+      },
+    });
+  } catch (error) {
+    next(error);
   }
 };

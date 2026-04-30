@@ -16,7 +16,10 @@ router.post('/', conversationController.createConversation);
 router.get('/:id/messages', conversationController.getMessages);
 router.post('/:id/messages', conversationController.sendMessage);
 
-// 流式返回还有问题
+// 流式返回(还有问题)
 router.post('/:id/messages/stream', conversationController.streamSendMessage);
+
+// 提取标题总结接口
+router.post('/:id/summarize-title', conversationController.summarizeTitle);
 
 export default router;

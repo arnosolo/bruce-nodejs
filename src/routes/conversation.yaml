@@ -178,10 +178,6 @@ paths:
                         $ref: '#/components/schemas/Message'
                       aiMessage:
                         $ref: '#/components/schemas/Message'
-                      newTitle:
-                        type: string
-                        nullable: true
-                        description: 更新后的会话标题 (仅在标题自动总结后返回)
         400:
           $ref: '#/components/responses/BadRequestError'
         401:
@@ -228,6 +224,46 @@ paths:
                 example: "data: {\"content\": \"Hello\"}\n\ndata: {\"content\": \" world\"}\n\nevent: end\ndata: [DONE]\n\n"
         401:
           $ref: '#/components/responses/UnauthorizedError'
+        500:
+          $ref: '#/components/responses/ServerError'
+
+  /conversations/{id}/summarize-title:
+    post:
+      summary: 触发会话标题生成/总结
+      tags: [Conversation]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: 会话 ID
+      responses:
+        200:
+          description: 标题总结成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                        description: 生成的新标题
+        400:
+          $ref: '#/components/responses/BadRequestError'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        404:
+          $ref: '#/components/responses/NotFoundError'
         500:
           $ref: '#/components/responses/ServerError'
 

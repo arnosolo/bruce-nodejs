@@ -234,7 +234,7 @@ export const generateAgentResponse = async (conversationId: number, userId: numb
     
     // 确保 content 是字符串
     const responseContent = lastMessage.content;
-    console.log('AI response', responseContent);
+    // console.log('AI response', responseContent);
     return typeof responseContent === "string" ? responseContent : JSON.stringify(responseContent);
   } catch (error) {
     console.error("Gemini Agent Error:", error);
@@ -312,9 +312,9 @@ export async function* streamAgentResponse(conversationId: number, userId: numbe
 /**
  * 根据会话历史生成一个简洁的标题
  * @param conversationId 会话 ID
- * @returns 生成的标题，若失败则返回 null
+ * @returns 生成的标题
  */
-export const summarizeConversationTitle = async (conversationId: number): Promise<string | null> => {
+export const summarizeConversationTitle = async (conversationId: number): Promise<string> => {
   const model = await getChatModel();
 
   try {
@@ -325,7 +325,9 @@ export const summarizeConversationTitle = async (conversationId: number): Promis
       take: 5, // 只取前 5 条消息生成标题即可
     });
 
-    if (messages.length === 0) return null;
+    if (messages.length === 0) {
+      throw new AppError(ErrorCode.InvalidRequest, "No messages found in this conversation to summarize.");
+    }
 
     const contentSummary = messages
       .map((m) => `${m.role === MessageRole.USER ? "User" : "AI"}: ${m.content}`)
@@ -334,8 +336,10 @@ export const summarizeConversationTitle = async (conversationId: number): Promis
     // 2. 构造 Prompt 要求模型生成标题
     const prompt = `请根据以下对话内容，生成一个简短、准确的会话标题（不超过 15 个字）。
       直接返回标题文字，不要包含引号或其他修饰。对话内容：${contentSummary}`;
-
+    // console.log(`[summarize] prompt = ${prompt}`);
+      
     const result = await model.invoke(prompt);
+    // console.log(`[summarize] result`, result);
     
     let title = typeof result.content === "string" ? result.content : JSON.stringify(result.content);
     
@@ -343,9 +347,14 @@ export const summarizeConversationTitle = async (conversationId: number): Promis
     if (title.startsWith("标题：")) title = title.substring(3);
     if (title.length > 30) title = title.substring(0, 27) + "...";
 
-    return title || null;
+    if (!title) {
+      throw new AppError(ErrorCode.InternalError, "AI failed to generate a valid title.");
+    }
+
+    return title;
   } catch (error) {
     console.error("Failed to summarize conversation title:", error);
-    return null; // 失败时返回 null，不影响主流程
+    if (error instanceof AppError) throw error;
+    throw new AppError(ErrorCode.InternalError, "AI Service failed during title summarization");
   }
 };
