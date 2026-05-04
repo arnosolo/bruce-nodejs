@@ -12,6 +12,10 @@ import { logger } from './utils/logger.js';
 import morgan from 'morgan';
 
 const app = express();
+
+// 必须开启 trust proxy，否则拿到的都是负载均衡器的 IP. 必须放在所有中间件最前面.
+app.set('trust proxy', true); 
+
 const port = process.env.PORT || 3000;
 
 app.use(cors({
@@ -22,8 +26,8 @@ app.use(express.json());
 // Setup Swagger UI
 setupSwagger(app);
 
-// HTTP 请求日志（morgan + winston 结合）
-app.use(morgan('tiny', {
+// HTTP 请求日志
+app.use(morgan(':remote-addr - :method :url :status :response-time ms', {
   stream: { write: (message: string) => logger.info(message.trim()) }
 }));
 

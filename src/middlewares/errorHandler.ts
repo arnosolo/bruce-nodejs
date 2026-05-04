@@ -9,19 +9,20 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  // 1. 记录日志 (可以在此处集成更高级的日志库，如 Winston)
-  logger.error({
-    message: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    ip: req.ip,
-  })
-
-  // 2. 归一化：将所有非业务异常统一包装为 AppError (InternalError)
+  // 1. 归一化：将所有非业务异常统一包装为 AppError (InternalError)
   const appError = err instanceof AppError 
     ? err 
     : new AppError(ErrorCode.InternalError);
+
+  // 2. 记录日志：包含 errorCode 和请求上下文
+  // 使用 (message, meta) 形式以确保最佳的 TS 类型兼容性
+  logger.error(err.message, {
+    ip: req.ip,
+    method: req.method,
+    path: req.path,
+    errorCode: appError.errorCode,
+    stack: err.stack,
+  }); 
 
   // 3. 统一出口：确保所有错误响应结构完全一致
   res.status(appError.statusCode).json({
