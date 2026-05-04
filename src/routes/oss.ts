@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import * as ossController from '../controllers/oss.controller.js';
 import { authenticate } from '../middlewares/auth.js';
+import multer from 'multer';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
-// 需要认证才能获取上传权限
-router.get('/upload-signature', authenticate, ossController.getUploadSignature);
+// 后端直接上传文件
+router.post('/upload', authenticate, upload.single('file'), ossController.uploadFile);
 
 export default router;

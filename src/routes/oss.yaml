@@ -1,26 +1,25 @@
 paths:
-  /oss/upload-signature:
-    get:
-      summary: 获取 OSS 上传签名 (PostObject)
+  /oss/upload:
+    post:
+      summary: 后端直接上传文件
       description: |
-        前端直传 OSS 流程：
-        1. 调用此接口获取 `host`, `policy`, `signature` 等参数。
-        2. 使用 `multipart/form-data` POST 请求将文件上传至 `host` 域名。
-        3. 表单字段必须包含：`key`, `policy`, `OSSAccessKeyId`, `signature` 以及 `file` (file 必须是最后一个字段)。
-        4. 上传成功后，将 `key` 用于提交业务消息（如发送图片消息）。
+        将文件发送到后端，由后端完成 OSS 上传。
+        使用 `multipart/form-data` 格式，字段名为 `file`。
       tags: [OSS]
       security:
         - bearerAuth: []
-      parameters:
-        - in: query
-          name: filename
-          required: true
-          schema:
-            type: string
-          description: 待上传的文件名（用于生成后缀）
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
       responses:
         200:
-          description: 成功获取上传签名
+          description: 上传成功
           content:
             application/json:
               schema:
@@ -31,18 +30,12 @@ paths:
                   data:
                     type: object
                     properties:
-                      host:
+                      name:
                         type: string
-                        description: OSS 上传域名
-                      policy:
+                        description: 文件名
+                      url:
                         type: string
-                        description: Base64 编码的上传策略
-                      signature:
-                        type: signature
-                        description: 签名字符串
-                      accessId:
-                        type: string
-                        description: AccessKey ID
+                        description: 文件的访问链接 (如果是私有读，可能需要签名)
                       key:
                         type: string
                         description: 文件在 OSS 中的唯一路径

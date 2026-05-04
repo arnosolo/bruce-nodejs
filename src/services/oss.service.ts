@@ -4,6 +4,8 @@ import { ErrorCode } from '../constants/errorCodes.js';
 
 /**
  * 阿里云 OSS 配置校验
+ * 
+ * 参考文档：https://help.aliyun.com/zh/oss/user-guide/simple-upload
  */
 const getOSSConfig = () => {
   const {
@@ -18,11 +20,11 @@ const getOSSConfig = () => {
   }
 
   return {
-    region: OSS_REGION,
+    region: OSS_REGION, // 按照文档建议，通常为 'oss-cn-hangzhou'
     bucket: OSS_BUCKET,
-    accessKeyId: OSS_ACCESS_KEY_ID,
-    accessKeySecret: OSS_ACCESS_KEY_SECRET,
-    secure: true,
+    accessKeyId: OSS_ACCESS_KEY_ID.trim(),
+    accessKeySecret: OSS_ACCESS_KEY_SECRET.trim(),
+    authorizationV4: true,
   };
 };
 
@@ -31,41 +33,19 @@ const getOSSConfig = () => {
  */
 const getClient = () => {
   const config = getOSSConfig();
+  // console.log(config);
   return new OSS(config);
 };
 
 /**
- * 生成前端 PostObject 上传签名 (可限制文件大小)
- * @param key 文件在 OSS 中的路径
- * @param maxSize 允许的最大文件尺寸 (字节)
+ * 后端直接上传文件到 OSS
+ * @param key 文件路径
+ * @param file 本地文件路径或 Buffer
  */
-export const getPostObjectSignature = (key: string, maxSize = 10 * 1024 * 1024) => {
+export const uploadFile = async (key: string, file: string | Buffer) => {
   const client = getClient();
-  const config = getOSSConfig();
-  
-  // 设置过期时间 (10分钟)
-  const expiration = new Date();
-  expiration.setMinutes(expiration.getMinutes() + 10);
-
-  // 策略定义
-  const policy = {
-    expiration: expiration.toISOString(),
-    conditions: [
-      ['content-length-range', 0, maxSize], // 限制文件大小
-      ['eq', '$key', key], // 限制上传路径必须一致
-    ],
-  };
-
-  // 生成签名
-  const params = client.calculatePostSignature(JSON.stringify(policy));
-
-  return {
-    host: `https://${config.bucket}.${config.region}.aliyuncs.com`,
-    policy: params.policy,
-    signature: params.Signature,
-    accessId: params.OSSAccessKeyId,
-    key,
-  };
+  const result = await client.put(key, file);
+  return result;
 };
 
 /**

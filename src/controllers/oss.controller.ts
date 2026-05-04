@@ -6,30 +6,34 @@ import { ErrorCode } from '../constants/errorCodes.js';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
- * 获取 OSS 上传签名 (PostObject)
+ * 后端直接上传文件
  */
-export const getUploadSignature = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const uploadFile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
       return next(new AppError(ErrorCode.Unauthorized));
     }
 
-    const { filename } = req.query;
-    if (!filename || typeof filename !== 'string') {
-      return next(new AppError(ErrorCode.InvalidRequest, '文件名不能为空'));
+    const file = req.file;
+    if (!file) {
+      return next(new AppError(ErrorCode.InvalidRequest, '没有上传文件'));
     }
 
     // 生成唯一的 Key: uploads/{userId}/{uuid}-{filename}
-    const ext = filename.split('.').pop();
+    const ext = file.originalname.split('.').pop();
     const key = `uploads/${userId}/${uuidv4()}${ext ? `.${ext}` : ''}`;
 
-    // 限制 10MB
-    const signature = ossService.getPostObjectSignature(key, 10 * 1024 * 1024);
+    // 上传到 OSS
+    const result = await ossService.uploadFile(key, file.buffer);
 
     res.json({
       success: true,
-      data: signature,
+      data: {
+        name: result.name,
+        url: result.url,
+        key: key,
+      },
     });
   } catch (error) {
     next(error);
