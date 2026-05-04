@@ -8,6 +8,8 @@ import authRouter from './routes/auth.js';
 import conversationRouter from './routes/conversation.js';
 import ossRouter from './routes/oss.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { logger } from './utils/logger.js';
+import morgan from 'morgan';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -19,6 +21,11 @@ app.use(express.json());
 
 // Setup Swagger UI
 setupSwagger(app);
+
+// HTTP 请求日志（morgan + winston 结合）
+app.use(morgan('tiny', {
+  stream: { write: (message: string) => logger.info(message.trim()) }
+}));
 
 app.get('/', (req: Request, res: Response) => {
   res.redirect('/api-docs');
@@ -34,7 +41,8 @@ app.use('/oss', ossRouter); // OSS 相关路由
 app.use(errorHandler);
 
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  logger.log({ level: 'info', message: `Server is running on http://localhost:${port}`})
+  // console.log(`Server is running on http://localhost:${port}`);
 });
 
 // Graceful shutdown
