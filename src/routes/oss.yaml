@@ -1,9 +1,10 @@
 paths:
-  /oss/upload:
+  /oss/upload/avatar:
     post:
-      summary: 后端直接上传文件
+      summary: 上传用户头像 (公开访问)
       description: |
-        将文件发送到后端，由后端完成 OSS 上传。
+        将头像发送到后端，存入 OSS 的 `public/avatar` 目录。
+        该目录下的文件可通过固定 URL 公开访问。
         使用 `multipart/form-data` 格式，字段名为 `file`。
       tags: [OSS]
       security:
@@ -28,20 +29,55 @@ paths:
                   success:
                     type: boolean
                   data:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                        description: 文件名
-                      url:
-                        type: string
-                        description: 文件的访问链接 (如果是私有读，可能需要签名)
-                      key:
-                        type: string
-                        description: 文件在 OSS 中的唯一路径
-        400:
-          $ref: '#/components/responses/BadRequestError'
+                    $ref: '#/components/schemas/UploadResponse'
         401:
           $ref: '#/components/responses/UnauthorizedError'
-        500:
-          $ref: '#/components/responses/ServerError'
+
+  /oss/upload/chat:
+    post:
+      summary: 上传聊天附件 (私有访问)
+      description: |
+        将附件发送到后端，存入 OSS 的 `private/chat` 目录。
+        该目录下的文件访问需要带签名。
+        使用 `multipart/form-data` 格式，字段名为 `file`。
+      tags: [OSS]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        200:
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/UploadResponse'
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  schemas:
+    UploadResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 文件在 OSS 中的原始名称
+        url:
+          type: string
+          description: 文件的访问链接 (公开目录为固定链接，私有目录为签名链接)
+        key:
+          type: string
+          description: 文件在 OSS 中的完整路径 (Key)

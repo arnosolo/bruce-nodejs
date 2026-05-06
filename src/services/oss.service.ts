@@ -49,12 +49,22 @@ export const uploadFile = async (key: string, file: string | Buffer) => {
 };
 
 /**
- * 生成访问私有文件的 GET 签名 URL
+ * 获取文件访问 URL
+ * 如果是 public/ 开头的路径，根据 Bucket Policy 直接返回不带签名的 URL
+ * 否则返回带签名的私有访问 URL
  * @param key 文件路径
  */
-export const getDownloadUrl = (key: string | null | undefined) => {
+export const getFileUrl = (key: string | null | undefined) => {
   if (!key) return null;
   const client = getClient();
+  
+  if (key.startsWith('public/')) {
+    const config = getOSSConfig();
+    // 注意：需要在阿里云 OSS 控制台配置 Bucket Policy 授权 public/* 目录的公开读权限
+    return `https://${config.bucket}.${config.region}.aliyuncs.com/${key}`;
+  }
+
+  // 生成访问私有文件的 GET 签名 URL
   return client.signatureUrl(key, {
     expires: 3600, // 1小时有效
   });

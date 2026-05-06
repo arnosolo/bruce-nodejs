@@ -6,7 +6,10 @@ import multer from 'multer';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 后端直接上传文件
-router.post('/upload', authenticate, upload.single('file'), ossController.uploadFile);
+// 上传头像 (公开)
+router.post('/upload/avatar', authenticate, upload.single('file'), ossController.uploadAvatar);
+
+// 上传聊天附件 (私有)
+router.post('/upload/chat', authenticate, upload.single('file'), ossController.uploadChat);
 
 export default router;

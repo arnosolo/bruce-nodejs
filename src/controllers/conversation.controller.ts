@@ -126,7 +126,7 @@ export const getMessages = async (req: AuthRequest, res: Response, next: NextFun
     // 为附件生成私密下载链接
     const messagesWithUrls = messages.map(msg => ({
       ...msg,
-      url: msg.attachmentKey ? ossService.getDownloadUrl(msg.attachmentKey) : null,
+      url: msg.attachmentKey ? ossService.getFileUrl(msg.attachmentKey) : null,
     }));
 
     res.json({
@@ -213,7 +213,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       data: {
         userMessage: {
           ...userMessage,
-          url: userMessage.attachmentKey ? ossService.getDownloadUrl(userMessage.attachmentKey) : null,
+          url: userMessage.attachmentKey ? ossService.getFileUrl(userMessage.attachmentKey) : null,
         },
         aiMessage,
       },
