@@ -7,6 +7,7 @@ import { validatePassword, validateEmail } from '../utils/validator.js';
 import { ErrorCode } from '../constants/errorCodes.js';
 import { AuthRequest } from '../middlewares/auth.js';
 import * as userService from '../services/user.service.js';
+import * as ossService from '../services/oss.service.js';
 
 /**
  * 辅助函数：生成 JWT
@@ -16,13 +17,25 @@ const generateToken = (userId: number, secret: string): string => {
 };
 
 /**
+ * 辅助函数：处理用户信息，隐藏密码并转换头像 Key 为 URL
+ */
+const formatUser = (user: any) => {
+  if (!user) return null;
+  const { password, avatarKey, ...rest } = user;
+  return {
+    ...rest,
+    avatarKey,
+    avatarUrl: ossService.getFileUrl(avatarKey),
+  };
+};
+
+/**
  * 辅助函数：统一响应结构
  */
 const formatAuthResponse = (user: any, token: string) => {
-  const { password, ...userWithoutPassword } = user;
   return {
     token,
-    user: userWithoutPassword,
+    user: formatUser(user),
   };
 };
 
@@ -129,11 +142,9 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
       return next(new AppError(ErrorCode.Unauthorized));
     }
 
-    const { password, ...userWithoutPassword } = user;
-
     res.json({
       success: true,
-      data: userWithoutPassword,
+      data: formatUser(user),
     });
   } catch (error) {
     next(error);
@@ -152,11 +163,15 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
       return next(new AppError(ErrorCode.Unauthorized));
     }
 
-    const { name } = req.body;
+    const { name, avatarKey } = req.body;
     const updateData: userService.UpdateProfileInput = {};
 
     if (name !== undefined) {
       updateData.name = name;
+    }
+
+    if (avatarKey !== undefined) {
+      updateData.avatarKey = avatarKey;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -165,12 +180,10 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
 
     const updatedUser = await userService.updateProfile(userId, updateData);
 
-    const { password, ...userWithoutPassword } = updatedUser;
-
     res.json({
       success: true,
       message: '个人资料更新成功',
-      data: userWithoutPassword,
+      data: formatUser(updatedUser),
     });
   } catch (error) {
     next(error);

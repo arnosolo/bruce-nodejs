@@ -2,7 +2,7 @@ import { prisma } from "../lib/prisma.js";
 
 export interface UpdateProfileInput {
   name?: string;
-  // 未来可以扩展更多字段，如 avatar, bio 等
+  avatarKey?: string;
 }
 
 /**

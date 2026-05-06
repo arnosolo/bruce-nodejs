@@ -128,6 +128,9 @@ paths:
               properties:
                 name:
                   type: string
+                avatarKey:
+                  type: string
+                  description: OSS 中的头像路径 (例如 public/avatar/...)
       responses:
         200:
           description: Profile updated successfully
@@ -224,6 +227,14 @@ components:
           type: string
           nullable: true
           description: User's name
+        avatarKey:
+          type: string
+          nullable: true
+          description: OSS 中的头像路径
+        avatarUrl:
+          type: string
+          nullable: true
+          description: 头像的可访问 URL
         createdAt:
           type: string
           format: date-time
