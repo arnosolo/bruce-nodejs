@@ -69,3 +69,22 @@ export const getFileUrl = (key: string | null | undefined) => {
     expires: 3600, // 1小时有效
   });
 };
+
+/**
+ * 获取文件的 Base64 编码 (Data URL 格式)
+ * 用于直接向 AI 模型提供图片数据
+ * @param key 文件路径
+ */
+export const getFileBase64 = async (key: string): Promise<string> => {
+  const client = getClient();
+  try {
+    const result = await client.get(key);
+    const buffer = result.content as Buffer;
+    const mimeType = result.res.headers['content-type'] || 'image/jpeg';
+    
+    return `data:${mimeType};base64,${buffer.toString('base64')}`;
+  } catch (error) {
+    console.error('Failed to get file from OSS:', error);
+    throw new AppError(ErrorCode.InternalError, '无法从存储中获取文件');
+  }
+};

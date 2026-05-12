@@ -5,10 +5,11 @@ import { BaseMessage } from "@langchain/core/messages";
 import { Runnable } from "@langchain/core/runnables";
 import z from "zod";
 import { prisma } from "../lib/prisma.js";
-import { MessageRole } from "../../generated/prisma/client.js";
+import { Message, MessageRole, MessageType } from "../../generated/prisma/client.js";
 import { AppError } from "../utils/AppError.js";
 import { ErrorCode } from "../constants/errorCodes.js";
 import * as userService from "./user.service.js";
+import * as ossService from "./oss.service.js";
 import { ChatOllama } from "@langchain/ollama";
 
 /**
@@ -18,7 +19,7 @@ const SYSTEM_PROMPT = `你是一位专业、友善且高效的 AI 客服助手�
 你的目标是为用户提供准确的帮助。
 
 行为准则：
-1. 身份认同：你是该平台的官方 AI 客服，始终保持礼貌和专业的态度。
+1. 身份认同：你是该平台的官方 AI 客服，始终保持礼貌 and 专业的态度。
 2. 工具使用：如果用户提到自己的名字（如“我叫小明”）或要求更改姓名，请务必使用 'update_user_profile' 工具进行更新。
 3. 简洁性：回复应直接、清晰，避免冗长的废话。
 4. 边界意识：仅回答与客服、平台使用及用户账户相关的问题。`;
@@ -34,9 +35,26 @@ interface ModelConfig {
   baseUrl?: string;
 }
 
+/**
+ * 多模态内容结构
+ */
+interface MultimodalContent {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: { url: string | null };
+}
+
+/**
+ * 格式化后的消息结构，兼容多模态
+ */
+interface FormattedMessage {
+  role: "user" | "assistant" | "system";
+  content: string | MultimodalContent[];
+}
+
 // 定义 Agent 的输入输出结构
 interface AgentInput {
-  messages: Array<{ role: string; content: string } | BaseMessage>;
+  messages: Array<FormattedMessage | BaseMessage>;
 }
 
 interface AgentOutput {
@@ -192,6 +210,41 @@ async function getAgent(): Promise<Runnable<AgentInput, AgentOutput>> {
 }
 
 /**
+ * 格式化消息历史，支持多模态（图片）
+ */
+const formatMessageHistory = async (messages: Message[]): Promise<FormattedMessage[]> => {
+  return Promise.all(
+    messages.reverse().map(async (msg) => {
+      const role = msg.role === MessageRole.USER ? "user" : "assistant";
+
+      if (msg.type === MessageType.IMAGE && msg.attachmentKey) {
+        // Gemini 等模型通常需要 base64 格式的图片数据
+        const imageData = await ossService.getFileBase64(msg.attachmentKey);
+        const content: MultimodalContent[] = [
+          {
+            type: "image_url",
+            image_url: { url: imageData },
+          },
+        ];
+        // 只有当 content 不为空时才添加文本部分
+        if (msg.content && msg.content.trim()) {
+          content.unshift({ type: "text", text: msg.content });
+        }
+        return {
+          role,
+          content,
+        };
+      }
+
+      return {
+        role,
+        content: msg.content,
+      };
+    })
+  );
+};
+
+/**
  * 生成 AI 回复 (使用 Gemini Agent)
  * @param conversationId 会话 ID
  * @param userId 用户 ID
@@ -210,12 +263,7 @@ export const generateAgentResponse = async (conversationId: number, userId: numb
     });
 
     // 转换为符合接口的消息格式
-    const formattedHistory = historyMessages
-      .reverse()
-      .map((msg) => ({
-        role: msg.role === MessageRole.USER ? "user" : "assistant",
-        content: msg.content,
-      }));
+    const formattedHistory = await formatMessageHistory(historyMessages);
     // console.log(formattedHistory);
 
     // 2. 调用 Agent
@@ -260,12 +308,7 @@ export async function* streamAgentResponse(conversationId: number, userId: numbe
       take: 10,
     });
 
-    const formattedHistory = historyMessages
-      .reverse()
-      .map((msg) => ({
-        role: msg.role === MessageRole.USER ? "user" : "assistant",
-        content: msg.content,
-      }));
+    const formattedHistory = await formatMessageHistory(historyMessages);
 
     // 2. 调用 Agent 的 stream 方法
     const stream = await agent.stream({
@@ -281,20 +324,20 @@ export async function* streamAgentResponse(conversationId: number, userId: numbe
       // console.log(chunk);
       
       // 遍历 chunk 中的所有节点输出 (如 model_request, tools 等)
-      const chunkData = chunk as any;
+      const chunkData = chunk as Record<string, any>;
       for (const key of Object.keys(chunkData)) {
         const nodeOutput = chunkData[key];
 
         // 检查节点输出是否有 messages 数组
         if (nodeOutput && Array.isArray(nodeOutput.messages)) {
-          const lastMsg = nodeOutput.messages[nodeOutput.messages.length - 1];
+          const lastMsg = nodeOutput.messages[nodeOutput.messages.length - 1] as BaseMessage;
 
           // 过滤逻辑：
           // 1. 必须是 AI 消息 (排除 ToolMessage)
           // 2. content 必须是字符串 (排除包含 tool_calls 的数组结构)
           // 3. 避免空内容
           if (
-            (lastMsg._getType?.() === "ai" || lastMsg.role === "assistant") &&
+            (lastMsg._getType?.() === "ai" || (lastMsg as any).role === "assistant") &&
             typeof lastMsg.content === "string" &&
             lastMsg.content.trim().length > 0
           ) {
@@ -330,7 +373,11 @@ export const summarizeConversationTitle = async (conversationId: number): Promis
     }
 
     const contentSummary = messages
-      .map((m) => `${m.role === MessageRole.USER ? "User" : "AI"}: ${m.content}`)
+      .map((m) => {
+        const roleName = m.role === MessageRole.USER ? "User" : "AI";
+        const textContent = m.type === MessageType.IMAGE ? `[图片] ${m.content || ""}` : m.content;
+        return `${roleName}: ${textContent}`;
+      })
       .join("\n");
 
     // 2. 构造 Prompt 要求模型生成标题
