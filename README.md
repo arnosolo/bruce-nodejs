@@ -120,6 +120,14 @@
 - generated/: 自动生成的 Prisma Client 代码 (已在 .gitignore 中忽略)
 - prisma.config.ts: Prisma 7 配置文件
 
-## 参考文档
+## 资源
+
+### 源码
+https://github.com/arnosolo/ai-customer-service
+
+### 前端
+https://github.com/arnosolo/ai-customer-service-vue
+
+### 参考文档
 
 - [Prisma PostgreSQL 快速入门](https://www.prisma.io/docs/prisma-orm/quickstart/postgresql)
