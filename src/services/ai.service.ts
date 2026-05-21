@@ -5,12 +5,13 @@ import { BaseMessage } from "@langchain/core/messages";
 import { Runnable } from "@langchain/core/runnables";
 import z from "zod";
 import { prisma } from "../lib/prisma.js";
-import { Message, MessageRole, MessageType } from "../../generated/prisma/client.js";
+import { Message, MessageRole, MessageType } from "../../generated/prisma/index.js";
 import { AppError } from "../utils/AppError.js";
 import { ErrorCode } from "../constants/errorCodes.js";
 import * as userService from "./user.service.js";
 import * as ossService from "./oss.service.js";
-import { ChatOllama } from "@langchain/ollama";
+import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 
 /**
  * 系统的核心指令，定义 AI 的身份、语气和行为规范
@@ -63,8 +64,57 @@ interface AgentOutput {
 
 // 缓存 Model 实例
 let modelInstance: Runnable | null = null;
+// 缓存 Embeddings 实例
+let embeddingsInstance: GoogleGenerativeAIEmbeddings | OllamaEmbeddings | null = null;
 // 缓存 Agent 实例，使用 Runnable 接口进行约束
 let agentInstance: Runnable<AgentInput, AgentOutput> | null = null;
+
+/**
+ * 获取或初始化 Embeddings 实例 (单例模式)
+ */
+export async function getEmbeddingsModel(): Promise<GoogleGenerativeAIEmbeddings | OllamaEmbeddings> {
+  if (embeddingsInstance) {
+    return embeddingsInstance;
+  }
+
+  const provider = process.env.AI_PROVIDER;
+  const apiKey = process.env.AI_API_KEY || process.env.GOOGLE_API_KEY;
+
+  if (provider === "google-genai") {
+    if (!apiKey) {
+      throw new AppError(ErrorCode.ConfigError, "Missing API Key for Google Embeddings");
+    }
+    embeddingsInstance = new GoogleGenerativeAIEmbeddings({
+      apiKey: apiKey,
+      modelName: "text-embedding-004", // 默认使用 768 维的模型 (如 text-embedding-004)
+    });
+  } else if (provider === "ollama") {
+    embeddingsInstance = new OllamaEmbeddings({
+      baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
+      model: process.env.AI_EMBEDDING_MODEL || "nomic-embed-text",
+    });
+  } else {
+    throw new AppError(ErrorCode.ConfigError, `Unsupported AI provider for embeddings: "${provider}"`);
+  }
+
+  return embeddingsInstance;
+}
+
+/**
+ * 生成文本的向量表示
+ * @param text 文本内容
+ * @returns 向量数组
+ */
+export const generateEmbedding = async (text: string): Promise<number[]> => {
+  try {
+    const model = await getEmbeddingsModel();
+    return await model.embedQuery(text);
+  } catch (error) {
+    console.error("Failed to generate embedding:", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError(ErrorCode.InternalError, "AI Service failed to generate embedding");
+  }
+};
 
 /**
  * 初始化 Google Gemini 模型

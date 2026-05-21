@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../utils/AppError.js';
 import { ErrorCode } from '../constants/errorCodes.js';
 import { AuthRequest } from '../middlewares/auth.js';
-import { MessageRole, MessageType } from '../../generated/prisma/client.js';
+import { MessageRole, MessageType } from '../../generated/prisma/index.js';
 import * as aiService from '../services/ai.service.js';
 import * as ossService from '../services/oss.service.js';
 

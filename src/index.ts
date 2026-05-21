@@ -7,6 +7,7 @@ import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
 import conversationRouter from './routes/conversation.js';
 import ossRouter from './routes/oss.js';
+import faqRouter from './routes/faq.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { logger } from './utils/logger.js';
 import morgan from 'morgan';
@@ -40,6 +41,7 @@ app.use('/health', healthRouter);
 app.use('/auth', authRouter);
 app.use('/conversations', conversationRouter); // 会话与聊天路由
 app.use('/oss', ossRouter); // OSS 相关路由
+app.use('/faqs', faqRouter); // FAQ 向量搜索与管理路由
 
 // 全局错误处理中间件
 app.use(errorHandler);

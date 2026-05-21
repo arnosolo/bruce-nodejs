@@ -2,12 +2,23 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+model Faq {
+  id        Int                     @id @default(autoincrement())
+  question  String                  @db.Text
+  answer    String                  @db.Text
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
 }
 
 enum Role {

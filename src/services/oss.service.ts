@@ -80,7 +80,7 @@ export const getFileBase64 = async (key: string): Promise<string> => {
   try {
     const result = await client.get(key);
     const buffer = result.content as Buffer;
-    const mimeType = result.res.headers['content-type'] || 'image/jpeg';
+    const mimeType = (result.res.headers as any)['content-type'] || 'image/jpeg';
     
     return `data:${mimeType};base64,${buffer.toString('base64')}`;
   } catch (error) {
