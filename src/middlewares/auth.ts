@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError.js';
 import { ErrorCode } from '../constants/errorCodes.js';
+import { prisma } from '../lib/prisma.js';
+import { Role } from '../../generated/prisma/index.js';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -9,6 +11,9 @@ export interface AuthRequest extends Request {
   };
 }
 
+/**
+ * 身份验证中间件：检查 JWT Token 并提取用户 ID
+ */
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
@@ -35,4 +40,32 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   } catch (error) {
     return next(new AppError(ErrorCode.Unauthorized));
   }
+};
+
+/**
+ * 权限验证中间件：检查用户角色
+ * @param roles 允许访问的角色列表
+ */
+export const authorize = (...roles: Role[]) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return next(new AppError(ErrorCode.Unauthorized));
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user || !roles.includes(user.role)) {
+        return next(new AppError(ErrorCode.Forbidden, '您没有权限执行此操作'));
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
 };

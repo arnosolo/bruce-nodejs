@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as faqController from "../controllers/faq.controller.js";
-import { authenticate } from "../middlewares/auth.js";
+import { authenticate, authorize } from "../middlewares/auth.js";
+import { Role } from "../../generated/prisma/index.js";
 
 const router = Router();
 
@@ -8,9 +9,9 @@ const router = Router();
 router.get("/search", faqController.searchFAQs);
 
 // 管理接口
-router.get("/", authenticate, faqController.getAllFAQs);
-router.post("/", authenticate, faqController.createFAQ);
-router.put("/:id", authenticate, faqController.updateFAQ);
-router.delete("/:id", authenticate, faqController.deleteFAQ);
+router.get("/", authenticate, authorize(Role.ADMIN, Role.AGENT), faqController.getAllFAQs);
+router.post("/", authenticate, authorize(Role.ADMIN, Role.AGENT), faqController.createFAQ);
+router.put("/:id", authenticate, authorize(Role.ADMIN, Role.AGENT), faqController.updateFAQ);
+router.delete("/:id", authenticate, authorize(Role.ADMIN, Role.AGENT), faqController.deleteFAQ);
 
 export default router;
