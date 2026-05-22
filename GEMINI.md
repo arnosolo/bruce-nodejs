@@ -61,4 +61,32 @@ npm start
 - **Environment Variables:** Use a `.env` file for local configuration (e.g., `DATABASE_URL`).
 - **Prisma 7 Configuration:** The `datasource` URL in `schema.prisma` is removed. Runtime connections use `@prisma/adapter-pg` with a `pg` pool. Migrations use the URL defined in `prisma.config.ts`.
 - **Graceful Shutdown:** The server handles `SIGTERM` to close database connections properly.
-- **API Responses:** Follow standard JSON response patterns.
+- **API Standards**:
+    - **Naming Convention**: Use `camelCase` for all JSON keys (both request and response).
+    - **Success Wrapper**: 
+        - Data returning: `{ success: true, data: { ... } }`
+        - Action success: `{ success: true, message: "Operation description" }`
+    - **Error Wrapper**: (Handled by `errorHandler`)
+        - Structure: `{ success: false, message: "Error description", errorCode: "CODE" }`
+    - **Paginated List Style**:
+        - **Parameters**: Use `page` (start at 1) and `limit`.
+        - **Structure**:
+          ```json
+          {
+            "success": true,
+            "data": {
+              "list": [],
+              "pagination": { "total": 0, "page": 1, "limit": 10, "totalPages": 0 }
+            }
+          }
+          ```
+    - **DateTime**: Use `ISO 8601` string format (e.g., `2024-05-22T10:00:00Z`).
+    - **HTTP Status Codes**:
+        - `200`: Success (Read/Update/Delete)
+        - `201`: Created (Success Create)
+        - `400`: Bad Request (Validation errors)
+        - `401`: Unauthorized (Not logged in)
+        - `403`: Forbidden (No permission / Account deleted)
+        - `404`: Not Found
+        - `500`: Internal Server Error
+

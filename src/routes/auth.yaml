@@ -206,6 +206,68 @@ paths:
           description: Invalid old password or simple new password
         401:
           description: Unauthorized
+  /auth/users:
+    get:
+      summary: List all users (Admin Only)
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by email or name
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [CUSTOMER, AGENT, AI, ADMIN]
+          description: Filter by role
+      responses:
+        200:
+          description: User list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          totalPages:
+                            type: integer
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Requires Admin role
   /auth/users/{id}/role:
     patch:
       summary: Update a user's role (Admin Only)

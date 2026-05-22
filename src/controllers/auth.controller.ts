@@ -8,6 +8,8 @@ import { ErrorCode } from '../constants/errorCodes.js';
 import { AuthRequest } from '../middlewares/auth.js';
 import * as userService from '../services/user.service.js';
 import * as ossService from '../services/oss.service.js';
+import { Role } from '../../generated/prisma/index.js';
+import { mapToEnum } from '../utils/mapToEnum.js';
 
 /**
  * 辅助函数：生成 JWT
@@ -262,6 +264,76 @@ export const deleteAccount = async (req: AuthRequest, res: Response, next: NextF
     res.json({
       success: true,
       message: '账号已成功注销',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 管理员接口：更新用户角色
+ */
+export const updateUserRole = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const targetUserId = parseInt(req.params.id as string);
+    const role = mapToEnum(req.body.role, Role);
+
+    if (isNaN(targetUserId)) {
+      return next(new AppError(ErrorCode.InvalidRequest, '无效的用户 ID'));
+    }
+
+    if (!role) {
+      return next(new AppError(ErrorCode.InvalidRequest, '无效的角色类型'));
+    }
+
+    // 检查目标用户是否存在
+    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!targetUser) {
+      return next(new AppError(ErrorCode.NotFound, '目标用户不存在'));
+    }
+
+    const updatedUser = await userService.updateUserRole(targetUserId, role as any);
+
+    res.json({
+      success: true,
+      message: '用户角色更新成功',
+      data: formatUser(updatedUser),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 获取用户列表 (仅管理员可用)
+ */
+export const listUsers = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    
+    let role: Role | undefined = undefined;
+    if (req.query.role) {
+      role = mapToEnum(req.query.role, Role);
+      if (!role) {
+        return next(new AppError(ErrorCode.InvalidRequest, '无效的角色参数'));
+      }
+    }
+
+    const { list, pagination } = await userService.getUsers({
+      page,
+      limit,
+      search,
+      role,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        list: list.map(formatUser),
+        pagination,
+      },
     });
   } catch (error) {
     next(error);
