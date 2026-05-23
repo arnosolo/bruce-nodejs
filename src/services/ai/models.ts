@@ -6,16 +6,17 @@ import { AppError } from "../../utils/AppError.js";
 import { ErrorCode } from "../../constants/errorCodes.js";
 import { ModelConfig } from "./types.js";
 import "dotenv/config";
+import { GoogleGenAI } from "@google/genai";
 
 // 缓存 Model 实例
 let modelInstance: Runnable | null = null;
 // 缓存 Embeddings 实例
-let embeddingsInstance: GoogleGenerativeAIEmbeddings | OllamaEmbeddings | null = null;
+let embeddingsInstance: GoogleGenAI | GoogleGenerativeAIEmbeddings | OllamaEmbeddings | null = null;
 
 /**
  * 获取或初始化 Embeddings 实例 (单例模式)
  */
-export async function getEmbeddingsModel(): Promise<GoogleGenerativeAIEmbeddings | OllamaEmbeddings> {
+export async function getEmbeddingsModel(): Promise<GoogleGenAI | GoogleGenerativeAIEmbeddings | OllamaEmbeddings> {
   if (embeddingsInstance) {
     return embeddingsInstance;
   }
@@ -27,10 +28,15 @@ export async function getEmbeddingsModel(): Promise<GoogleGenerativeAIEmbeddings
     if (!apiKey) {
       throw new AppError(ErrorCode.ConfigError, "Missing API Key for Google Embeddings");
     }
-    embeddingsInstance = new GoogleGenerativeAIEmbeddings({
-      apiKey: apiKey,
-      modelName: "text-embedding-004",
-    });
+    // 示例中的 embedding-001 模型返回 404, 
+    // gemini-embedding-001 模型可以用, 但是输出的向量是 3072 维
+    // embeddingsInstance = new GoogleGenerativeAIEmbeddings({
+    //   apiKey: apiKey,
+    //   modelName: "gemini-embedding-001",
+    // });
+    // 换成 Google 原生 SDK 来生成向量
+    const ai = new GoogleGenAI({ apiKey });
+    embeddingsInstance = ai
   } else if (provider === "ollama") {
     embeddingsInstance = new OllamaEmbeddings({
       baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",

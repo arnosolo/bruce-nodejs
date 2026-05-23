@@ -7,6 +7,7 @@ import { getAgent } from "./agent.js";
 import { formatMessageHistory } from "./utils.js";
 import { SYSTEM_PROMPT } from "./prompts.js";
 import { BaseMessage } from "@langchain/core/messages";
+import { GoogleGenAI } from "@google/genai";
 
 // 重新导出底层方法，以便外部直接使用 (如 generateEmbedding)
 export { getChatModel, getEmbeddingsModel } from "./models.js";
@@ -19,6 +20,24 @@ export { getChatModel, getEmbeddingsModel } from "./models.js";
 export const generateEmbedding = async (text: string): Promise<number[]> => {
   try {
     const model = await getEmbeddingsModel();
+    if (model instanceof GoogleGenAI) {
+      const response = await model.models.embedContent({
+        model: "gemini-embedding-001",
+        contents: text,
+        config: {
+          outputDimensionality: 768 // 在这里指定维度
+        }
+      });
+      
+      // ✅ 修复：正确获取 Gemini 嵌入向量
+      const embeddingValues = response.embeddings?.[0]?.values;
+      if (!embeddingValues || embeddingValues.length === 0) {
+        throw new Error("Gemini returned empty embedding");
+      }
+      // console.log(embeddingValues);
+      
+      return embeddingValues;
+    }
     return await model.embedQuery(text);
   } catch (error) {
     console.error("Failed to generate embedding:", error);
