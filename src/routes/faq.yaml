@@ -189,6 +189,38 @@ paths:
         500:
           $ref: '#/components/responses/ServerError'
 
+  /faqs/rebuild:
+    post:
+      summary: 重新生成所有 FAQ 的向量 (仅限管理员)
+      tags: [FAQ]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: force
+          schema:
+            type: boolean
+            default: false
+          description: 是否强制重刷所有向量（默认仅刷新缺失或模型不匹配的）
+      responses:
+        200:
+          description: 任务已在后台启动
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        401:
+          $ref: '#/components/responses/UnauthorizedError'
+        403:
+          $ref: '#/components/responses/ForbiddenError'
+        500:
+          $ref: '#/components/responses/ServerError'
+
 components:
   schemas:
     FAQ:
@@ -200,6 +232,9 @@ components:
           type: string
         answer:
           type: string
+        embeddingModel:
+          type: string
+          description: 生成该向量所使用的模型名称
         createdAt:
           type: string
           format: date-time

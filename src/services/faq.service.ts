@@ -8,13 +8,14 @@ import { ErrorCode } from "../constants/errorCodes.js";
  */
 export const createFAQ = async (question: string, answer: string) => {
   const embedding = await aiService.generateEmbedding(question);
+  const modelName = aiService.getEmbeddingModelName();
   
   // 使用 raw query 插入向量，因为 Prisma 不直接支持 vector 类型赋值
   const vectorString = `[${embedding.join(",")}]`;
   
   const result = await prisma.$executeRaw`
-    INSERT INTO "Faq" (question, answer, embedding, "updatedAt")
-    VALUES (${question}, ${answer}, ${vectorString}::vector, NOW())
+    INSERT INTO "Faq" (question, answer, embedding, "embeddingModel", "updatedAt")
+    VALUES (${question}, ${answer}, ${vectorString}::vector, ${modelName || null}, NOW())
   `;
   
   return result;
@@ -63,6 +64,7 @@ export const updateFAQ = async (id: number, data: { question?: string; answer?: 
 
   if (data.question) {
     const embedding = await aiService.generateEmbedding(data.question);
+    const modelName = aiService.getEmbeddingModelName();
     const vectorString = `[${embedding.join(",")}]`;
     
     await prisma.$executeRaw`
@@ -70,6 +72,7 @@ export const updateFAQ = async (id: number, data: { question?: string; answer?: 
       SET question = ${data.question}, 
           answer = ${data.answer || faq.answer}, 
           embedding = ${vectorString}::vector,
+          "embeddingModel" = ${modelName || null},
           "updatedAt" = NOW()
       WHERE id = ${id}
     `;
@@ -98,11 +101,67 @@ export const searchFAQs = async (query: string, limit: number = 5) => {
   // 使用 pgvector 的 <-> (L2 距离) 或 <=> (余弦相似度) 进行搜索
   // 这里使用 <=> 余弦距离 (1 - cosine similarity)
   const faqs = await prisma.$queryRaw<any[]>`
-    SELECT id, "question", "answer", 1 - (embedding <=> ${vectorString}::vector) as similarity
+    SELECT id, "question", "answer", 1 - (embedding <=> ${vectorString}::vector) as similarity, "embeddingModel"
     FROM "Faq"
     ORDER BY embedding <=> ${vectorString}::vector
     LIMIT ${limit}
   `;
 
   return faqs;
+};
+
+/**
+ * 重新生成所有 FAQ 的向量
+ * @param force 是否强制重刷所有向量。如果为 false，则仅刷新模型不匹配或缺失向量的数据。
+ */
+export const rebuildAllEmbeddings = async (force: boolean = false) => {
+  const currentModel = aiService.getEmbeddingModelName();
+  if (!currentModel) {
+    throw new AppError(ErrorCode.ConfigError, "AI_EMBEDDING_MODEL is not configured for re-indexing");
+  }
+  
+  // 1. 获取需要刷新的数据
+  const faqs = await prisma.faq.findMany({
+    where: force ? {} : {
+      OR: [
+        { embeddingModel: { not: currentModel } },
+        { embeddingModel: null }
+      ]
+    },
+    select: { id: true, question: true }
+  });
+
+  console.log(`Starting re-vectorization for ${faqs.length} FAQs...`);
+
+  let successCount = 0;
+  let failureCount = 0;
+
+  // 2. 遍历并刷新（生产环境建议使用队列或控制并发）
+  for (const faq of faqs) {
+    try {
+      const embedding = await aiService.generateEmbedding(faq.question);
+      const vectorString = `[${embedding.join(",")}]`;
+      
+      await prisma.$executeRaw`
+        UPDATE "Faq"
+        SET embedding = ${vectorString}::vector,
+            "embeddingModel" = ${currentModel},
+            "updatedAt" = NOW()
+        WHERE id = ${faq.id}
+      `;
+      successCount++;
+    } catch (error) {
+      console.error(`Failed to re-index FAQ ${faq.id}:`, error);
+      failureCount++;
+    }
+  }
+
+  console.log(`Re-vectorization completed. Success: ${successCount}, Failure: ${failureCount}, Model: ${currentModel}`);
+
+  return {
+    total: faqs.length,
+    success: successCount,
+    failure: failureCount,
+    model: currentModel
+  };
 };

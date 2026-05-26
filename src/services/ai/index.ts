@@ -13,34 +13,44 @@ import { GoogleGenAI } from "@google/genai";
 export { getChatModel, getEmbeddingsModel } from "./models.js";
 
 /**
+ * 获取当前使用的向量模型名称
+ */
+export const getEmbeddingModelName = (): string | undefined => {
+  return process.env.AI_EMBEDDING_MODEL;
+};
+
+/**
  * 生成文本的向量表示
  * @param text 文本内容
  * @returns 向量数组
  */
 export const generateEmbedding = async (text: string): Promise<number[]> => {
+  const modelName = getEmbeddingModelName();
+  if (!modelName) {
+    throw new AppError(ErrorCode.ConfigError, "AI_EMBEDDING_MODEL is not configured");
+  }
+
   try {
     const model = await getEmbeddingsModel();
     if (model instanceof GoogleGenAI) {
       const response = await model.models.embedContent({
-        model: "gemini-embedding-001",
+        model: modelName,
         contents: text,
         config: {
           outputDimensionality: 768 // 在这里指定维度
         }
       });
       
-      // ✅ 修复：正确获取 Gemini 嵌入向量
       const embeddingValues = response.embeddings?.[0]?.values;
       if (!embeddingValues || embeddingValues.length === 0) {
-        throw new Error("Gemini returned empty embedding");
+        throw new Error(`Gemini (${modelName}) returned empty embedding`);
       }
-      // console.log(embeddingValues);
       
       return embeddingValues;
     }
     return await model.embedQuery(text);
   } catch (error) {
-    console.error("Failed to generate embedding:", error);
+    console.error(`Failed to generate embedding with model ${modelName}:`, error);
     if (error instanceof AppError) throw error;
     throw new AppError(ErrorCode.InternalError, "AI Service failed to generate embedding");
   }

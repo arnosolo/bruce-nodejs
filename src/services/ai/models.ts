@@ -23,6 +23,7 @@ export async function getEmbeddingsModel(): Promise<GoogleGenAI | GoogleGenerati
 
   const provider = process.env.AI_PROVIDER;
   const apiKey = process.env.AI_API_KEY || process.env.GOOGLE_API_KEY;
+  const embeddingModel = process.env.AI_EMBEDDING_MODEL;
 
   if (provider === "google-genai") {
     if (!apiKey) {
@@ -38,9 +39,12 @@ export async function getEmbeddingsModel(): Promise<GoogleGenAI | GoogleGenerati
     const ai = new GoogleGenAI({ apiKey });
     embeddingsInstance = ai
   } else if (provider === "ollama") {
+    if (!embeddingModel) {
+      throw new AppError(ErrorCode.ConfigError, "Missing AI_EMBEDDING_MODEL for Ollama provider");
+    }
     embeddingsInstance = new OllamaEmbeddings({
       baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
-      model: process.env.AI_EMBEDDING_MODEL || "nomic-embed-text",
+      model: embeddingModel,
     });
   } else {
     throw new AppError(ErrorCode.ConfigError, `Unsupported AI provider for embeddings: "${provider}"`);

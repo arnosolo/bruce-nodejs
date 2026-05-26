@@ -14,4 +14,7 @@ router.post("/", authenticate, authorize(Role.ADMIN, Role.AGENT), faqController.
 router.put("/:id", authenticate, authorize(Role.ADMIN, Role.AGENT), faqController.updateFAQ);
 router.delete("/:id", authenticate, authorize(Role.ADMIN, Role.AGENT), faqController.deleteFAQ);
 
+// 重新向量化（仅限管理员）
+router.post("/rebuild", authenticate, authorize(Role.ADMIN), faqController.rebuildEmbeddings);
+
 export default router;

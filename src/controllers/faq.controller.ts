@@ -105,3 +105,25 @@ export const searchFAQs = async (req: Request, res: Response, next: NextFunction
     next(error);
   }
 };
+
+/**
+ * 重新生成所有 FAQ 的向量
+ */
+export const rebuildEmbeddings = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const force = req.query.force === "true";
+    
+    // 异步执行，不等待完成，直接返回任务开始的信息
+    // 在实际生产中，建议通过消息队列处理并返回任务 ID
+    faqService.rebuildAllEmbeddings(force).catch(err => {
+      console.error("Async rebuildAllEmbeddings failed:", err);
+    });
+
+    res.json({
+      success: true,
+      message: "Re-vectorization process started in background",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
