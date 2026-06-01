@@ -22,7 +22,7 @@ For the definitive schema, please refer to `prisma/schema.prisma`.
 
 ## AI Service & Features
 ### Multi-Provider Support
-The AI service supports multiple providers (Google Gemini, OpenAI, Ollama) via environment configuration (`AI_PROVIDER`).
+The AI service supports multiple providers (Google Gemini, OpenAI, Qwen, Ollama) via environment configuration (`AI_PROVIDER`).
 
 ### Automatic Conversation Titling
 Conversations are automatically summarized and titled by the AI to improve UX.

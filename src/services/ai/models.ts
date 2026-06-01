@@ -2,6 +2,7 @@ import { Runnable } from "@langchain/core/runnables";
 import { initChatModel } from "langchain";
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { OpenAIEmbeddings } from "@langchain/openai";
 import { AppError } from "../../utils/AppError.js";
 import { ErrorCode } from "../../constants/errorCodes.js";
 import { ModelConfig } from "./types.js";
@@ -11,12 +12,12 @@ import { GoogleGenAI } from "@google/genai";
 // 缓存 Model 实例
 let modelInstance: Runnable | null = null;
 // 缓存 Embeddings 实例
-let embeddingsInstance: GoogleGenAI | GoogleGenerativeAIEmbeddings | OllamaEmbeddings | null = null;
+let embeddingsInstance: GoogleGenAI | GoogleGenerativeAIEmbeddings | OllamaEmbeddings | OpenAIEmbeddings | null = null;
 
 /**
  * 获取或初始化 Embeddings 实例 (单例模式)
  */
-export async function getEmbeddingsModel(): Promise<GoogleGenAI | GoogleGenerativeAIEmbeddings | OllamaEmbeddings> {
+export async function getEmbeddingsModel(): Promise<GoogleGenAI | GoogleGenerativeAIEmbeddings | OllamaEmbeddings | OpenAIEmbeddings> {
   if (embeddingsInstance) {
     return embeddingsInstance;
   }
@@ -46,6 +47,19 @@ export async function getEmbeddingsModel(): Promise<GoogleGenAI | GoogleGenerati
       baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
       model: embeddingModel,
     });
+  } else if (provider === "qwen") {
+    const qwenApiKey = process.env.QWEN_API_KEY || process.env.AI_API_KEY;
+    if (!qwenApiKey) {
+      throw new AppError(ErrorCode.ConfigError, "Missing API Key for Qwen Embeddings (QWEN_API_KEY)");
+    }
+    embeddingsInstance = new OpenAIEmbeddings({
+      apiKey: qwenApiKey,
+      modelName: embeddingModel || "text-embedding-v3",
+      dimensions: 768,
+      configuration: {
+        baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      },
+    });
   } else {
     throw new AppError(ErrorCode.ConfigError, `Unsupported AI provider for embeddings: "${provider}"`);
   }
@@ -73,6 +87,24 @@ const initOpenAIModel = async (config: ModelConfig) => {
     throw new AppError(ErrorCode.ConfigError, "Missing API Key: Please set AI_API_KEY or OPENAI_API_KEY");
   }
   return initChatModel(`${config.provider}:${config.modelName}`, { temperature: config.temperature, apiKey });
+};
+
+/**
+ * 初始化 Qwen (通义千问) 模型
+ * 通义千问提供兼容 OpenAI 的接口
+ */
+const initQwenModel = async (config: ModelConfig) => {
+  const apiKey = config.apiKey || process.env.QWEN_API_KEY || process.env.AI_API_KEY;
+  if (!apiKey) {
+    throw new AppError(ErrorCode.ConfigError, "Missing API Key: Please set AI_API_KEY or QWEN_API_KEY");
+  }
+  return initChatModel(`openai:${config.modelName}`, {
+    temperature: config.temperature,
+    apiKey,
+    configuration: {
+      baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    },
+  });
 };
 
 /**
@@ -124,6 +156,9 @@ export async function getChatModel(): Promise<Runnable> {
         break;
       case "openai":
         modelInstance = await initOpenAIModel(config);
+        break;
+      case "qwen":
+        modelInstance = await initQwenModel(config);
         break;
       case "ollama":
         modelInstance = await initOllamaModel(config);
