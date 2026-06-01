@@ -61,12 +61,16 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       return next(new AppError(ErrorCode.UserAlreadyExists));
     }
 
+    const adminEmail = process.env.AI_CS_ADMIN_EMAIL;
+    const role = (adminEmail && email === adminEmail) ? Role.ADMIN : Role.CUSTOMER;
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
+        role,
       },
     });
 
