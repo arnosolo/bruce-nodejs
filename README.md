@@ -1,4 +1,4 @@
-# AI 智能客服 API
+# 聪明小黄后端
 
 这是一个基于 Node.js、Express 和 TypeScript 开发的后端项目。数据库使用 PostgreSQL，并采用 Prisma 7 作为 ORM。
 
