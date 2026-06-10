@@ -62,6 +62,7 @@ npm start
 - **Prisma 7 Configuration:** The `datasource` URL in `schema.prisma` is removed. Runtime connections use `@prisma/adapter-pg` with a `pg` pool. Migrations use the URL defined in `prisma.config.ts`.
 - **Graceful Shutdown:** The server handles `SIGTERM` to close database connections properly.
 - **API Standards**:
+    - **Base URL**: Use `/api/v1` prefix for all business API routes (e.g., `/api/v1/auth/login`).
     - **Naming Convention**: Use `camelCase` for all JSON keys (both request and response).
     - **Success Wrapper**: 
         - Data returning: `{ success: true, data: { ... } }`

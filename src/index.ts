@@ -33,15 +33,21 @@ app.use(morgan(':remote-addr - :method :url :status :response-time ms', {
 }));
 
 app.get('/', (req: Request, res: Response) => {
-  res.redirect('/api-docs');
+  res.redirect('/api/docs');
 });
 
 // 路由注册
 app.use('/health', healthRouter);
-app.use('/auth', authRouter);
-app.use('/conversations', conversationRouter); // 会话与聊天路由
-app.use('/oss', ossRouter); // OSS 相关路由
-app.use('/faqs', faqRouter); // FAQ 向量搜索与管理路由
+
+// API 路由组
+const apiRouter = express.Router();
+apiRouter.use('/health', healthRouter);
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/conversations', conversationRouter); // 会话与聊天路由
+apiRouter.use('/oss', ossRouter); // OSS 相关路由
+apiRouter.use('/faqs', faqRouter); // FAQ 向量搜索与管理路由
+
+app.use('/api/v1', apiRouter);
 
 // 全局错误处理中间件
 app.use(errorHandler);

@@ -2,7 +2,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Express, Request, Response } from 'express';
 
-const swaggerJsonPath = '/api-docs-json';
+const swaggerJsonPath = '/api/docs-json';
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -14,8 +14,8 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000',
-        description: 'Development server',
+        url: 'http://localhost:3000/api/v1',
+        description: 'Development server (v1)',
       },
     ],
     components: {
@@ -42,8 +42,8 @@ const options: swaggerJsdoc.Options = {
 const specs = swaggerJsdoc(options);
 
 export function setupSwagger(app: Express) {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-  
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs));
+
   // 暴露 Swagger JSON 数据
   app.get(swaggerJsonPath, (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
