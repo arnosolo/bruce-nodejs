@@ -8,6 +8,7 @@ import { formatMessageHistory } from "./utils.js";
 import { SYSTEM_PROMPT } from "./prompts.js";
 import { BaseMessage } from "@langchain/core/messages";
 import { GoogleGenAI } from "@google/genai";
+import { AIMessage } from "@langchain/core/messages";
 
 // 重新导出底层方法，以便外部直接使用 (如 generateEmbedding)
 export { getChatModel, getEmbeddingsModel } from "./models.js";
@@ -128,8 +129,10 @@ export async function* streamAgentResponse(conversationId: number, userId: numbe
         if (nodeOutput && Array.isArray(nodeOutput.messages)) {
           const lastMsg = nodeOutput.messages[nodeOutput.messages.length - 1] as BaseMessage;
 
+          // console.log(lastMsg);
+          
           if (
-            (lastMsg._getType?.() === "ai" || (lastMsg as any).role === "assistant") &&
+            (AIMessage.isInstance(lastMsg) || (lastMsg as any).role === "assistant") &&
             typeof lastMsg.content === "string" &&
             lastMsg.content.trim().length > 0
           ) {
