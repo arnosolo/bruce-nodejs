@@ -55,7 +55,7 @@ jobs:
             npx prisma generate
 
             # 3. PM2 重启/启动服务
-            pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
+            pm2 restart ecosystem.config.cjs || pm2 start ecosystem.config.cjs
 
             # 把最新进程状态写入快照(服务器重启的时候 pm2 会读取快照来重启服务)
             pm2 save
