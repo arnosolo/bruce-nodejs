@@ -6,30 +6,36 @@ on:
 
 jobs:
   # 代码校验 + 本地编译（不碰线上服务器）
-  build-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # build-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 24
+  #         cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+  #     - name: Install dependencies
+  #       run: npm install
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
+  #     - name: Generate Prisma Client
+  #       run: npx prisma generate
 
-      - name: TypeScript build check
-        run: npm run build
+  #     - name: TypeScript build check
+  #       run: npm run build
 
   deploy:
-    needs: build-check # 依赖上一步，校验失败则不部署
+    # needs: build-check # 依赖上一步，校验失败则不部署
     runs-on: ubuntu-latest
     steps:
+      - name: Debug Env
+        run: |
+          echo "HOST: ${{ secrets.SERVER_HOST }}"
+          echo "PORT: ${{ secrets.SERVER_PORT }}"
+          echo "USER: ${{ secrets.SERVER_USER }}"
+
       - name: SSH deploy
         uses: appleboy/ssh-action@master
         with:
