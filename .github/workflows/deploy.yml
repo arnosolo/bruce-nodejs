@@ -30,12 +30,6 @@ jobs:
     needs: build-check # 依赖上一步，校验失败则不部署
     runs-on: ubuntu-latest
     steps:
-      - name: Debug Env
-        run: |
-          echo "HOST: ${{ secrets.SERVER_HOST }}"
-          echo "PORT: ${{ secrets.SERVER_PORT }}"
-          echo "USER: ${{ secrets.SERVER_USER }}"
-
       - name: SSH deploy
         uses: appleboy/ssh-action@master
         with:
