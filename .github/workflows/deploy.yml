@@ -10,13 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: 'npm'
-      - run: npm install
-      - run: npm run build # 编译失败直接终止流程，不会执行部署
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: TypeScript build check
+        run: npm run build
 
   deploy:
     needs: build-check # 依赖上一步，校验失败则不部署
