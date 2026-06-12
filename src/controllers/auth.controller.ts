@@ -4,12 +4,19 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../utils/AppError.js';
 import { validatePassword, validateEmail } from '../utils/validator.js';
+import { generateNumericCode } from '../utils/crypto.js';
 import { ErrorCode } from '../constants/errorCodes.js';
 import { AuthRequest } from '../middlewares/auth.js';
 import * as userService from '../services/user.service.js';
 import * as ossService from '../services/oss.service.js';
+import * as mailService from '../services/mail.service.js';
 import { Role } from '../../generated/prisma/index.js';
 import { mapToEnum } from '../utils/mapToEnum.js';
+
+/**
+ * 邮箱验证码有效期 (小时)
+ */
+export const EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
 
 /**
  * 辅助函数：生成 JWT
@@ -23,7 +30,7 @@ const generateToken = (userId: number, secret: string): string => {
  */
 const formatUser = (user: any) => {
   if (!user) return null;
-  const { password, avatarKey, ...rest } = user;
+  const { password, avatarKey, emailVerificationCode, emailVerificationExpires, ...rest } = user;
   return {
     ...rest,
     avatarKey,
@@ -65,27 +72,127 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     const role = (adminEmail && email === adminEmail) ? Role.ADMIN : Role.CUSTOMER;
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // 生成 6 位数字验证码
+    const verificationCode = generateNumericCode(6);
+    const verificationExpires = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
         role,
+        emailVerificationCode: verificationCode,
+        emailVerificationExpires: verificationExpires,
       },
     });
 
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      console.error('JWT_SECRET is not defined');
-      return next(new AppError(ErrorCode.ConfigError));
+    // 发送验证邮件
+    try {
+      await mailService.sendVerificationEmail(email, verificationCode, EMAIL_VERIFICATION_EXPIRY_HOURS);
+    } catch (mailError) {
+      console.error('Failed to send verification email:', mailError);
+      // 如果邮件发送失败，删除已创建的用户以允许重新注册
+      await prisma.user.delete({ where: { id: user.id } });
+      return next(new AppError(ErrorCode.InternalError, '注册失败：验证邮件发送失败，请稍后重试'));
     }
-
-    const token = generateToken(user.id, secret);
 
     res.status(201).json({
       success: true,
-      message: '注册成功',
-      data: formatAuthResponse(user, token),
+      message: '注册成功，验证码已发送至您的邮箱',
+      data: {
+        user: formatUser(user),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return next(new AppError(ErrorCode.InvalidRequest, '邮箱和验证码不能为空'));
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!user || user.deletedAt || user.emailVerificationCode !== code) {
+      return next(new AppError(ErrorCode.InvalidVerificationCode, '验证码错误'));
+    }
+
+    if (user.emailVerificationExpires && user.emailVerificationExpires < new Date()) {
+      return next(new AppError(ErrorCode.VerificationCodeExpired));
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isEmailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationExpires: null,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: '邮箱验证成功，您现在可以登录了',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resendVerificationCode = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return next(new AppError(ErrorCode.InvalidRequest, '邮箱不能为空'));
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || user.deletedAt) {
+      return next(new AppError(ErrorCode.NotFound, '用户不存在'));
+    }
+
+    if (user.isEmailVerified) {
+      return next(new AppError(ErrorCode.InvalidRequest, '邮箱已验证，无需重复发送'));
+    }
+
+    // 生成新的 6 位数字验证码
+    const verificationCode = generateNumericCode(6);
+    const verificationExpires = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationCode: verificationCode,
+        emailVerificationExpires: verificationExpires,
+      },
+    });
+
+    // 发送验证邮件
+    try {
+      await mailService.sendVerificationEmail(email, verificationCode, EMAIL_VERIFICATION_EXPIRY_HOURS);
+    } catch (mailError) {
+      console.error('Failed to resend verification email:', mailError);
+      return next(new AppError(ErrorCode.InternalError, '发送邮件失败，请稍后再试'));
+    }
+
+    res.json({
+      success: true,
+      message: '验证码已重发，请检查您的邮箱',
     });
   } catch (error) {
     next(error);
@@ -103,6 +210,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     if (user.deletedAt) {
       return next(new AppError(ErrorCode.AccountDeleted));
+    }
+
+    // 检查邮箱是否已验证
+    if (!user.isEmailVerified) {
+      return next(new AppError(ErrorCode.EmailNotVerified));
     }
 
     // 检查是否有密码（适配 OAuth 等无密码场景）

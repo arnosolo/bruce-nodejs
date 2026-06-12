@@ -24,7 +24,7 @@ paths:
                   type: string
       responses:
         201:
-          description: User created successfully
+          description: User created successfully. Verification email sent.
           content:
             application/json:
               schema:
@@ -37,12 +37,34 @@ paths:
                   data:
                     type: object
                     properties:
-                      token:
-                        type: string
                       user:
                         $ref: '#/components/schemas/User'
         400:
-          description: User already exists
+          description: Invalid email or password
+  /auth/verify-email:
+    post:
+      summary: Verify user email using a 6-digit code
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - code
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  example: "123456"
+                  description: The 6-digit verification code sent to user's email
+      responses:
+        200:
+          description: Email verified successfully
           content:
             application/json:
               schema:
@@ -52,8 +74,40 @@ paths:
                     type: boolean
                   message:
                     type: string
-                  errorCode:
+        400:
+          description: Invalid or expired code
+  /auth/resend-code:
+    post:
+      summary: Resend verification code to user's email
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        200:
+          description: Verification code resent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
                     type: string
+        400:
+          description: Email already verified or invalid request
+        404:
+          description: User not found
   /auth/login:
     post:
       summary: Login a user
@@ -345,6 +399,9 @@ components:
           type: string
           nullable: true
           description: 头像的可访问 URL
+        isEmailVerified:
+          type: boolean
+          description: 是否已验证邮箱
         createdAt:
           type: string
           format: date-time

@@ -10,6 +10,9 @@ export const ErrorCode = {
   Unauthorized: 'AUTH_005',
   InvalidOldPassword: 'AUTH_006',
   AccountDeleted: 'AUTH_007',
+  EmailNotVerified: 'AUTH_008',
+  InvalidVerificationCode: 'AUTH_009',
+  VerificationCodeExpired: 'AUTH_010',
   
   // 请求相关
   InvalidRequest: 'REQ_001',
@@ -63,6 +66,18 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
   [ErrorCode.AccountDeleted]: { 
     message: '该账号已注销', 
     status: 403 
+  },
+  [ErrorCode.EmailNotVerified]: { 
+    message: '邮箱未验证，请先验证您的邮箱', 
+    status: 403 
+  },
+  [ErrorCode.InvalidVerificationCode]: { 
+    message: '验证码无效', 
+    status: 400 
+  },
+  [ErrorCode.VerificationCodeExpired]: { 
+    message: '验证码已过期', 
+    status: 400 
   },
 
   // --- 请求相关 ---
