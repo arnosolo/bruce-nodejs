@@ -28,12 +28,14 @@ jobs:
             # 安装所有依赖（包含 devDependencies，TS编译需要）
             npm ci
 
-            # 1. TypeScript 编译
-            npm run build
+            # 安装依赖（npm ci 锁版本，比 npm install 更适合CI）
+            npm ci
 
-            # 2. Prisma 生产迁移 + 生成客户端
-            npx prisma migrate deploy
+            # 优先生成 Prisma 客户端 & 类型（解决TS找不到字段问题）
             npx prisma generate
+
+            # 执行数据库生产迁移
+            npx prisma migrate deploy
 
             # 3. PM2 重启/启动服务
             pm2 restart ecosystem.config.cjs || pm2 start ecosystem.config.cjs
