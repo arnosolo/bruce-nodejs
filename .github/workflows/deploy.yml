@@ -5,29 +5,7 @@ on:
     branches: [ main ]
 
 jobs:
-  # 代码校验 + 本地编译（不碰线上服务器）
-  build-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: TypeScript build check
-        run: npm run build
-
   deploy:
-    needs: build-check # 依赖上一步，校验失败则不部署
     runs-on: ubuntu-latest
     steps:
       - name: SSH deploy
@@ -42,10 +20,13 @@ jobs:
             cd /www/bruce-nodejs
 
             # 拉取最新代码
-            git pull origin main
+            git fetch origin main
+
+            # 强制让本地当前分支 + 工作区，完全对齐远程 origin/main
+            git reset --hard origin/main
 
             # 安装所有依赖（包含 devDependencies，TS编译需要）
-            npm install
+            npm ci
 
             # 1. TypeScript 编译
             npm run build
