@@ -16,29 +16,39 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            # 进入项目目录
+            # 开启严格模式：命令失败直接退出 + 管道失败整体判定失败，阻断错误流程继续执行
+            set -eo pipefail
+
+            echo "===== 进入项目目录 ====="
             cd /www/bruce-nodejs
 
-            # 拉取最新代码
+            echo "===== 拉取并同步远程 main 代码 ====="
             git fetch origin main
-
-            # 强制让本地当前分支 + 工作区，完全对齐远程 origin/main
             git reset --hard origin/main
+            echo "当前部署 commit: $(git rev-parse --short HEAD)"
 
-            # 安装所有依赖（包含 devDependencies，TS编译需要）
+            echo "===== 安装锁定版本依赖 ====="
             npm ci
 
-            # 安装依赖（npm ci 锁版本，比 npm install 更适合CI）
-            npm ci
-
-            # 优先生成 Prisma 客户端 & 类型（解决TS找不到字段问题）
+            echo "===== 生成 Prisma 客户端 ====="
             npx prisma generate
 
-            # 执行数据库生产迁移
+            echo "===== TS 代码编译 ====="
+            npm run build
+
+            echo "===== 执行数据库生产迁移 ====="
             npx prisma migrate deploy
 
-            # 3. PM2 重启/启动服务
+            echo "===== PM2 重启业务服务 ====="
             pm2 restart ecosystem.config.cjs || pm2 start ecosystem.config.cjs
 
-            # 把最新进程状态写入快照(服务器重启的时候 pm2 会读取快照来重启服务)
+            echo "===== 等待服务启动并健康检测 ====="
+            sleep 3
+            curl -f http://127.0.0.1:3000/health || {
+              echo "服务启动异常，部署失败！"
+              exit 1
+            }
+
+            echo "===== 保存 PM2 进程快照 ====="
             pm2 save
+            echo "✅ 自动部署全部流程执行完成"
