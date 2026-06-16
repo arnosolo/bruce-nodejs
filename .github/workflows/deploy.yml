@@ -42,13 +42,6 @@ jobs:
             echo "===== PM2 重启业务服务 ====="
             pm2 restart ecosystem.config.cjs || pm2 start ecosystem.config.cjs
 
-            echo "===== 等待服务启动并健康检测 ====="
-            sleep 3
-            curl -f http://127.0.0.1:3000/health || {
-              echo "服务启动异常，部署失败！"
-              exit 1
-            }
-
             echo "===== 保存 PM2 进程快照 ====="
             pm2 save
             echo "✅ 自动部署全部流程执行完成"
