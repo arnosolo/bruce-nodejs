@@ -1,6 +1,7 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Express, Request, Response } from 'express';
+import { APP_VERSION } from '../constants/version.js';
 
 const swaggerJsonPath = '/api/docs-json';
 
@@ -9,7 +10,7 @@ const options: swaggerJsdoc.Options = {
     openapi: '3.0.0',
     info: {
       title: 'User Service API',
-      version: '1.0.0',
+      version: APP_VERSION,
       description: `User service API with Prisma and Express. [Download JSON](${swaggerJsonPath})`,
     },
     servers: [

@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { APP_VERSION } from '../constants/version.js';
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       message: '服务运行正常',
       data: {
         status: 'OK',
+        version: APP_VERSION,
         database: 'connected (simulated)'
       }
     });
