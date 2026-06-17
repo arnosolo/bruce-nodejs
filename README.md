@@ -149,7 +149,7 @@ npm run dev
 
 ## 手动部署
 
-在生产服务器上部署时，请遵循以下流程：
+本项目前后端分离, 前端存放在阿里云 OSS, 后端部署在阿里云 ECS. 在生产服务器上部署时，请遵循以下流程:
 
 ### 首次部署
 
@@ -245,9 +245,13 @@ pm2 list
 
 在阿里云域名解析, 创建一条 `A` 记录, 将域名指向服务器 IP.
 
-#### 下载 SSL 证书
+#### 上传 SSL 证书
 
-在阿里云数字证书管理服务, 可以下载到免费证书, 有效期 90天. 记得把证书上传到服务器上, 路径取决于 Nginx 配置
+在阿里云数字证书管理服务, 可以下载到免费证书. 记得把证书上传到服务器上, 路径取决于 Nginx 配置. 
+注意! 免费证书有效期只有 90天, 到时间了需要重新上传.
+```bash
+scp -i ~/.ssh/你的私钥.pem api.ai-cs.space.pem api.ai-cs.space.key root@服务器IP:/etc/nginx/ssl/
+```
 
 #### Nginx 配置
 
@@ -261,20 +265,20 @@ vim /etc/nginx/sites-available/default
 # HTTP 80 端口：全部重定向到 HTTPS
 server {
     listen 80;
-    server_name YOUR_DOMAIN; # 替换为你的实际域名，多域名空格分隔
+    server_name api.ai-cs.space;
 
     # 永久重定向 301
     return 301 https://$host$request_uri;
 }
 
-# HTTPS 443 端口 + SSL 证书配置
+# HTTPS 443 端口 + SSL 证书配置（纯后端API，无静态资源）
 server {
     listen 443 ssl;
-    server_name YOUR_DOMAIN; # 改为你的真实域名
+    server_name api.ai-cs.space;
 
     # ========== SSL 证书路径（修改为你实际文件路径） ==========
-    ssl_certificate      /etc/nginx/ssl/YOUR_DOMAIN.pem;
-    ssl_certificate_key  /etc/nginx/ssl/YOUR_DOMAIN.key;
+    ssl_certificate      /etc/nginx/ssl/api.ai-cs.space.pem;
+    ssl_certificate_key  /etc/nginx/ssl/api.ai-cs.space.key;
 
     # 基础 SSL 优化配置（阿里云通用推荐）
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -283,31 +287,21 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 10m;
 
-    # 静态资源目录 & 默认首页
-    root /usr/share/nginx/html/bruce-vue;
-    index index.html;
-
-    # 后端 API 反向代理
-    location /api/ {
-        # 反向代理到本地 3000 端口的服务
-        proxy_pass http://127.0.0.1:3000/api/;
-        
-        # 把客户端请求的 Host 头传给后端服务
-        proxy_set_header Host $host;
-
-        # 把客户端真实 IP 传给后端
-        proxy_set_header X-Real-IP $remote_addr;
-
-        # 传递经过的所有代理 IP 链（多层代理必备）
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-        # 传递前端协议（http/https）给后端
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Vue history 路由防 404（保留）
+    # 移除 root、index、Vue静态路由，只做API反向代理
     location / {
-        try_files $uri $uri/ /index.html;
+        # 全部请求转发后端，不需要拼接/api，后端自行处理路由前缀
+        proxy_pass http://127.0.0.1:3000;
+        
+        # 透传客户端信息
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 超时配置（可选优化，防止长接口超时断开）
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
     }
 }
 ```
