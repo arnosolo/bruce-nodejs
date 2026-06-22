@@ -94,7 +94,11 @@ export const deleteFAQ = async (id: number) => {
 /**
  * 向量搜索最相关的 FAQ
  */
-export const searchFAQs = async (query: string, limit: number = 5) => {
+export const searchFAQs = async (
+  query: string,
+  limit: number = 5,
+  minSimilarity: number = 0.7,
+) => {
   const embedding = await aiService.generateEmbedding(query);
   const vectorString = `[${embedding.join(",")}]`;
 
@@ -103,6 +107,8 @@ export const searchFAQs = async (query: string, limit: number = 5) => {
   const faqs = await prisma.$queryRaw<any[]>`
     SELECT id, "question", "answer", 1 - (embedding <=> ${vectorString}::vector) as similarity, "embeddingModel"
     FROM "Faq"
+    -- 相似度大于等于阈值才返回
+    WHERE 1 - (embedding <=> ${vectorString}::vector) >= ${minSimilarity}
     ORDER BY embedding <=> ${vectorString}::vector
     LIMIT ${limit}
   `;
