@@ -13,6 +13,10 @@ export const ErrorCode = {
   EmailNotVerified: 'AUTH_008',
   InvalidVerificationCode: 'AUTH_009',
   VerificationCodeExpired: 'AUTH_010',
+  LoginCodeRateLimit: 'AUTH_011',
+  LoginCodeExpired: 'AUTH_012',
+  LoginCodeInvalid: 'AUTH_013',
+  UserNotFound: 'AUTH_014',
   
   // 请求相关
   InvalidRequest: 'REQ_001',
@@ -78,6 +82,22 @@ export const ErrorConfig: Record<ErrorCode, ErrorConfigItem> = {
   [ErrorCode.VerificationCodeExpired]: { 
     message: '验证码已过期', 
     status: 400 
+  },
+  [ErrorCode.LoginCodeRateLimit]: {
+    message: '请求过于频繁，请60秒后再试',
+    status: 429
+  },
+  [ErrorCode.LoginCodeExpired]: {
+    message: '登录验证码已过期，请重新获取',
+    status: 400
+  },
+  [ErrorCode.LoginCodeInvalid]: {
+    message: '登录验证码错误',
+    status: 400
+  },
+  [ErrorCode.UserNotFound]: {
+    message: '该邮箱未注册',
+    status: 404
   },
 
   // --- 请求相关 ---

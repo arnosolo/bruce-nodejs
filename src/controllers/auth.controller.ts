@@ -19,6 +19,16 @@ import { mapToEnum } from '../utils/mapToEnum.js';
 export const EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
 
 /**
+ * 登录验证码有效期 (分钟)
+ */
+export const LOGIN_CODE_EXPIRY_MINUTES = 10;
+
+/**
+ * 登录验证码发送冷却时间 (秒)
+ */
+export const LOGIN_CODE_COOLDOWN_SECONDS = 60;
+
+/**
  * 辅助函数：生成 JWT
  */
 const generateToken = (userId: number, secret: string): string => {
@@ -193,6 +203,146 @@ export const resendVerificationCode = async (req: Request, res: Response, next: 
     res.json({
       success: true,
       message: '验证码已重发，请检查您的邮箱',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 发送登录验证码（免注册：不存在的用户自动创建）
+ * POST /auth/send-login-code
+ */
+export const sendLoginCode = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !validateEmail(email)) {
+      return next(new AppError(ErrorCode.InvalidEmail));
+    }
+
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    // 已注销用户，不暴露是否存在，统一返回成功
+    if (user?.deletedAt) {
+      return res.json({
+        success: true,
+        message: '如果邮箱已注册，验证码将发送至您的邮箱',
+      });
+    }
+
+    // 检查冷却时间，防止频繁发送（每 60 秒最多发一次）
+    if (user?.loginCodeExpires) {
+      const elapsedSeconds = (Date.now() - user.loginCodeExpires.getTime()) / 1000;
+      const timeSinceLastSend = elapsedSeconds + LOGIN_CODE_EXPIRY_MINUTES * 60;
+      const cooldownRemaining = LOGIN_CODE_COOLDOWN_SECONDS - timeSinceLastSend;
+      if (cooldownRemaining > 0) {
+        return next(new AppError(ErrorCode.LoginCodeRateLimit));
+      }
+    }
+
+    // 生成 6 位登录验证码
+    const loginCode = generateNumericCode(6);
+    const loginCodeExpires = new Date(Date.now() + LOGIN_CODE_EXPIRY_MINUTES * 60 * 1000);
+
+    if (!user) {
+      // 免注册：自动创建用户（无密码，未验证邮箱由验证码登录时一并完成验证）
+      user = await prisma.user.create({
+        data: {
+          email,
+          role: Role.CUSTOMER,
+          loginCode,
+          loginCodeExpires,
+        },
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          loginCode,
+          loginCodeExpires,
+        },
+      });
+    }
+
+    // 发送登录验证码邮件
+    try {
+      await mailService.sendLoginCodeEmail(email, loginCode, LOGIN_CODE_EXPIRY_MINUTES);
+    } catch (mailError) {
+      console.error('Failed to send login code email:', mailError);
+      // 自动创建的用户如果发邮件失败，删除之以便下次重试
+      if (user && !user.name && !user.password && !user.isEmailVerified) {
+        await prisma.user.delete({ where: { id: user.id } }).catch(() => {});
+      }
+      return next(new AppError(ErrorCode.InternalError, '发送验证码失败，请稍后重试'));
+    }
+
+    res.json({
+      success: true,
+      message: '验证码已发送至您的邮箱，请查收',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 验证码登录（免注册：首次验证码登录同时完成邮箱验证）
+ * POST /auth/login-by-code
+ */
+export const loginByCode = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return next(new AppError(ErrorCode.InvalidRequest, '邮箱和验证码不能为空'));
+    }
+
+    if (!validateEmail(email)) {
+      return next(new AppError(ErrorCode.InvalidEmail));
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return next(new AppError(ErrorCode.InvalidCredentials, '邮箱或验证码错误'));
+    }
+
+    if (user.deletedAt) {
+      return next(new AppError(ErrorCode.AccountDeleted));
+    }
+
+    if (!user.loginCode || user.loginCode !== code) {
+      return next(new AppError(ErrorCode.LoginCodeInvalid));
+    }
+
+    if (user.loginCodeExpires && user.loginCodeExpires < new Date()) {
+      return next(new AppError(ErrorCode.LoginCodeExpired));
+    }
+
+    // 登录成功：清除验证码，同时标记邮箱已验证（免注册用户首次登录即验证）
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        loginCode: null,
+        loginCodeExpires: null,
+        isEmailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationExpires: null,
+      },
+    });
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('JWT_SECRET is not defined');
+      return next(new AppError(ErrorCode.ConfigError));
+    }
+
+    const token = generateToken(user.id, secret);
+
+    res.json({
+      success: true,
+      message: '登录成功',
+      data: formatAuthResponse(user, token),
     });
   } catch (error) {
     next(error);

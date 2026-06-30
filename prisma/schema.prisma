@@ -39,6 +39,8 @@ model User {
   isEmailVerified          Boolean        @default(false)
   emailVerificationCode    String?        @db.VarChar(10)
   emailVerificationExpires DateTime?
+  loginCode                String?        @db.VarChar(10)
+  loginCodeExpires         DateTime?
   deletedAt                DateTime?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt

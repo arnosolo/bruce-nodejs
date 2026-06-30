@@ -108,6 +108,90 @@ paths:
           description: Email already verified or invalid request
         404:
           description: User not found
+  /auth/send-login-code:
+    post:
+      summary: Send a one-time login code to user's email (auto-registers new users)
+      tags: [Auth]
+      description: |
+        免注册登录第一步。输入邮箱即可收到 6 位验证码。
+        - 已注册用户：发送登录验证码
+        - 新用户：自动创建账号后发送验证码
+        - 已注销用户：出于安全不暴露，返回统一成功提示
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        200:
+          description: Login code sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        429:
+          description: Too many requests, rate limited
+  /auth/login-by-code:
+    post:
+      summary: Login using a one-time verification code (verifies email for new users)
+      tags: [Auth]
+      description: |
+        免注册登录第二步。输入邮箱 + 验证码即可登录。
+        首次登录的用户将同时完成邮箱验证。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - code
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  example: "123456"
+                  description: The 6-digit login code sent to user's email
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      user:
+                        $ref: '#/components/schemas/User'
+        400:
+          description: Invalid or expired code
+        401:
+          description: Invalid credentials
+        403:
+          description: Account deleted
   /auth/login:
     post:
       summary: Login a user
